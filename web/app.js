@@ -6,6 +6,9 @@ import { GodsEye, SUN_PRESETS } from "./godseye.js";
 import { Peek3D } from "./peek3d.js";
 import { FlatMap } from "./flatmap.js";
 import { LAYER_RAMPS, cssGradient, paint, percentileOf, quantile, rampPosition, sortedFinite } from "./colors.js";
+import { initStarfield } from "./starfield.js";
+
+initStarfield("starfield");
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -447,18 +450,14 @@ function setUi(key, value) {
 }
 
 function applyUi() {
-  const left = ui.left !== false;
-  const right = ui.right !== false;
-  document.body.classList.toggle("hide-left", !left);
-  document.body.classList.toggle("hide-right", !right);
-  const tl = $("toggleLeft");
-  tl.textContent = left ? "‹" : "›";
-  tl.setAttribute("aria-expanded", String(left));
-  tl.setAttribute("aria-label", `${left ? "Hide" : "Show"} the target panel`);
-  const tr = $("toggleRight");
-  tr.textContent = right ? "›" : "‹";
-  tr.setAttribute("aria-expanded", String(right));
-  tr.setAttribute("aria-label", `${right ? "Hide" : "Show"} the results panel`);
+  const sidebar = ui.sidebar !== false;
+  document.body.classList.toggle("hide-sidebar", !sidebar);
+  const ts = $("toggleSidebar");
+  if (ts) {
+    ts.textContent = sidebar ? "‹" : "›";
+    ts.setAttribute("aria-expanded", String(sidebar));
+    ts.setAttribute("aria-label", `${sidebar ? "Hide" : "Show"} the sidebar`);
+  }
   const twinOpen = ui.twin !== false;
   $("twin").classList.toggle("collapsed", !twinOpen);
   $("twinToggle").textContent = twinOpen ? "▾" : "▸";
@@ -479,8 +478,8 @@ function applyUi() {
 }
 
 function wireUi() {
-  $("toggleLeft").addEventListener("click", () => setUi("left", ui.left === false));
-  $("toggleRight").addEventListener("click", () => setUi("right", ui.right === false));
+  const ts = $("toggleSidebar");
+  if (ts) ts.addEventListener("click", () => setUi("sidebar", ui.sidebar === false));
   $("twinToggle").addEventListener("click", () => setUi("twin", ui.twin === false));
   document.querySelectorAll("[data-fold]").forEach((b) => b.addEventListener("click", () => {
     const key = `fold_${b.dataset.fold}`;
@@ -540,7 +539,7 @@ function renderTargets() {
       <strong>${esc(t.short_name)}</strong>
       <small>${Math.abs(t.latitude).toFixed(1)}°${t.latitude >= 0 ? "N" : "S"} ${Math.abs(t.longitude).toFixed(1)}°${t.longitude >= 0 ? "E" : "W"}</small>
     </button>`;
-  $("targets").innerHTML = groups.map((g) => `
+  const html = groups.map((g) => `
     <p class="group-label">${esc(g.name)}</p>
     <div class="target-grid">${g.items.map(card).join("")}</div>`).join("") + `
     <p class="group-label">Your own</p>
@@ -550,7 +549,17 @@ function renderTargets() {
         <strong>Custom target</strong><small>enter values by hand</small>
       </button>
     </div>`;
+  $("targets").innerHTML = html;
   $("targets").querySelectorAll(".target-card").forEach((b) => b.addEventListener("click", () => chooseTarget(b.dataset.id)));
+  
+  if ($("welcomeTargets")) {
+    $("welcomeTargets").innerHTML = html;
+    $("welcomeTargets").querySelectorAll(".target-card").forEach((b) => b.addEventListener("click", () => {
+      chooseTarget(b.dataset.id);
+      $("welcomeStartBtn").disabled = false;
+      $("welcomeStartBtn").textContent = "Start Exploration";
+    }));
+  }
 }
 
 function renderTargetDetail() {
@@ -1458,7 +1467,7 @@ function wireKeys() {
 /* ------------------------------------------------------------ tabs, dialogs */
 
 function selectTab(name) {
-  for (const [tab, panel] of [["tabResults", "results"], ["tabExplore", "explore"], ["tabValidation", "validation"]]) {
+  for (const [tab, panel] of [["tabTarget", "target"], ["tabResults", "results"], ["tabExplore", "explore"], ["tabValidation", "validation"]]) {
     $(tab).setAttribute("aria-selected", String(panel === name));
     $(panel).hidden = panel !== name;
   }
@@ -1533,8 +1542,12 @@ function wireDialogs() {
   $("openSources").addEventListener("click", open("sourcesDialog", renderSources));
   $("openKeys").addEventListener("click", () => $("keysDialog").showModal());
   document.querySelectorAll("dialog").forEach((d) => {
-    d.querySelector("[data-close]").addEventListener("click", () => d.close());
-    d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
+    const btn = d.querySelector("[data-close]");
+    if (btn) btn.addEventListener("click", () => d.close());
+    d.addEventListener("click", (e) => {
+      // Don't close welcome modal on backdrop click, force selection
+      if (e.target === d && d.id !== "welcomeModal") d.close();
+    });
   });
 }
 
@@ -1573,6 +1586,7 @@ async function init() {
   wireTour();
   wireKeys();
   document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+  $("tabTarget").addEventListener("click", () => selectTab("target"));
   $("tabResults").addEventListener("click", () => selectTab("results"));
   $("tabValidation").addEventListener("click", () => selectTab("validation"));
   $("tabExplore").addEventListener("click", () => selectTab("explore"));
@@ -1647,22 +1661,39 @@ async function init() {
     renderTargetDetail();
     renderWeights();
 
-    $("loadingText").textContent = "Loading NASA Blue Marble…";
-    await Promise.all([globe.setEarth("assets/earth_hd.jpg", "assets/earth.jpg"), flat.setBase("assets/earth_hd.jpg"), runScore()]);
-    if (hash.view === "map") setView("map");
-    if (hash.layer && state.criteria.some((c) => c.key === hash.layer)) {
-      layer.value = hash.layer;
-      await setLayer(hash.layer);
+    $("loadingText").textContent = "Loading NASA Blue Marble...";
+    await Promise.all([globe.setEarth("assets/earth_hd.jpg", "assets/earth.jpg"), flat.setBase("assets/earth_hd.jpg")]);
+    
+    const finishStart = async () => {
+      $("loading").classList.remove("done");
+      await runScore();
+      if (hash.view === "map") setView("map");
+      if (hash.layer && state.criteria.some((c) => c.key === hash.layer)) {
+        layer.value = hash.layer;
+        await setLayer(hash.layer);
+      }
+      const site = state.data?.results.find((r) => String(r.rank) === hash.site);
+      if (site) selectResult(site);
+      if (site && hash.eye === "1") openGodsEye(site, hash.sun in SUN_PRESETS ? hash.sun : null);
+      else if (state.data?.results.length) globe.flyTo(state.data.results[0].lat, state.data.results[0].lon);
+      if (hash.tab === "validation") selectTab("validation");
+      if (hash.dialog === "method") $("openMethod").click();
+      if (hash.dialog === "sources") $("openSources").click();
+      $("loading").classList.add("done");
+      ["click", "change"].forEach((ev) => document.addEventListener(ev, () => setTimeout(writeHash, 0)));
+      selectTab("results");
+    };
+
+    if (!hash.target) {
+      $("loading").classList.add("done");
+      $("welcomeModal").showModal();
+      $("welcomeStartBtn").addEventListener("click", () => {
+        $("welcomeModal").close();
+        finishStart();
+      });
+    } else {
+      await finishStart();
     }
-    const site = state.data?.results.find((r) => String(r.rank) === hash.site);
-    if (site) selectResult(site);
-    if (site && hash.eye === "1") openGodsEye(site, hash.sun in SUN_PRESETS ? hash.sun : null);
-    else if (state.data?.results.length) globe.flyTo(state.data.results[0].lat, state.data.results[0].lon);
-    if (hash.tab === "validation") selectTab("validation");
-    if (hash.dialog === "method") $("openMethod").click();
-    if (hash.dialog === "sources") $("openSources").click();
-    $("loading").classList.add("done");
-    ["click", "change"].forEach((ev) => document.addEventListener(ev, () => setTimeout(writeHash, 0)));
   } catch (err) {
     $("loadingText").textContent = `Could not start: ${err.message}`;
     $("chipMode").textContent = "backend error";

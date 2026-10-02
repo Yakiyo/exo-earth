@@ -6,6 +6,9 @@
 <title>TerraNova</title>
 <meta name="description" content="Find places on Earth that behave like Moon and Mars base sites, scored from NASA data.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='%23f08a4b'/%3E%3Cellipse cx='16' cy='16' rx='15' ry='5' fill='none' stroke='%23e8edf3' stroke-width='1.6' transform='rotate(-25 16 16)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <script type="importmap">
   { "imports": { "three": "./vendor/three/three.module.min.js" } }
@@ -39,24 +42,77 @@
 </header>
 
 <main class="layout">
-  <aside class="panel panel-left" id="leftPanel" aria-label="Target and weights">
-    <section class="block">
-      <h2 class="eyebrow"><button class="fold" type="button" data-fold="targets" aria-expanded="true"><span class="chev" aria-hidden="true">▾</span> 1 · Choose a target</button></h2>
-      <div id="targets" role="radiogroup" aria-label="Target site"></div>
-      <div class="target-detail" id="targetDetail"></div>
+  <aside class="panel sidebar" id="sidebar" aria-label="Controls and Results">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tabTarget" aria-selected="true" aria-controls="target" type="button">Target</button>
+      <button role="tab" id="tabResults" aria-selected="false" aria-controls="results" type="button">Results</button>
+      <button role="tab" id="tabExplore" aria-selected="false" aria-controls="explore" type="button">Explore</button>
+      <button role="tab" id="tabValidation" aria-selected="false" aria-controls="validation" type="button">Validation</button>
+    </div>
+
+    <section id="target" role="tabpanel" aria-labelledby="tabTarget">
+      <div class="block">
+        <h2 class="eyebrow">Choose a target</h2>
+        <div id="targets" role="radiogroup" aria-label="Target site"></div>
+        <div class="target-detail" id="targetDetail"></div>
+      </div>
     </section>
 
-    <section class="block">
-      <div class="block-head">
-        <h2 class="eyebrow"><button class="fold" type="button" data-fold="weights" aria-expanded="true"><span class="chev" aria-hidden="true">▾</span> 2 · Weight the criteria</button></h2>
-        <button class="link-button" id="resetWeights" type="button">Reset</button>
+    <section id="results" role="tabpanel" aria-labelledby="tabResults" tabindex="-1" hidden>
+      <details class="advanced-settings discovery">
+        <summary>Advanced Settings &amp; Filters</summary>
+        <div class="block" style="padding-top: 10px;">
+          <div class="block-head">
+            <h3 class="eyebrow">Weights</h3>
+            <button class="link-button" id="resetWeights" type="button">Reset</button>
+          </div>
+          <p class="hint">Drag to change how much each criterion counts.</p>
+          <div class="weights" id="weights"></div>
+        </div>
+        <div class="block" style="padding-top: 10px; border-bottom: 0;">
+          <h3 class="eyebrow">Discovery settings</h3>
+          <div class="topk">
+            <label for="topK">Show top <b class="num" id="topKValue">20</b> sites</label>
+            <input type="range" id="topK" min="5" max="100" step="5" value="20">
+          </div>
+          <label class="toggle disc-toggle"><input type="checkbox" id="newOnly" checked>
+            <span>New sites only <small>hide places within 500 km of a known analog</small></span></label>
+          <div class="topk">
+            <label for="spreadKm">Spread results: at least <b class="num" id="spreadValue">800 km</b> apart</label>
+            <input type="range" id="spreadKm" min="0" max="2000" step="100" value="800">
+          </div>
+          <div class="disc-row">
+            <label for="perCountry">Max per country</label>
+            <select id="perCountry">
+              <option value="0">no limit</option><option value="1">1</option>
+              <option value="2" selected>2</option><option value="3">3</option><option value="5">5</option>
+            </select>
+          </div>
+          <div class="topk">
+            <label for="tolerance">Permissible error <b class="num" id="toleranceValue">exact</b></label>
+            <input type="range" id="tolerance" min="0" max="3" step="0.25" value="0">
+            <small class="hint">Higher = full match anywhere within a band around the target.</small>
+          </div>
+        </div>
+      </details>
+      <div class="results-head">
+        <p class="hint" id="resultsSummary">Scoring…</p>
+        <div class="export">
+          <button class="ghost small" id="exportGeojson" type="button">GeoJSON</button>
+          <button class="ghost small" id="exportCsv" type="button">CSV</button>
+        </div>
       </div>
-      <p class="hint">Drag to change how much each criterion counts. The globe and ranking update live.</p>
-      <div class="weights" id="weights"></div>
+      <section class="compare" id="compare" hidden aria-label="Pinned sites"></section>
+      <ol class="site-list" id="siteList"></ol>
+      <article class="detail" id="detail" hidden></article>
     </section>
+
+    <section id="explore" role="tabpanel" aria-labelledby="tabExplore" tabindex="-1" hidden></section>
+    <section id="validation" role="tabpanel" aria-labelledby="tabValidation" tabindex="-1" hidden></section>
   </aside>
 
   <section class="stage" aria-label="Map of Earth analog scores">
+    <canvas id="starfield" aria-hidden="true"></canvas>
     <div class="view" id="globe" role="img" aria-label="3D globe of analog scores. Click anywhere to inspect a location."></div>
     <canvas class="view" id="flatmap" hidden aria-label="Flat map of analog scores. Click anywhere to inspect a location."></canvas>
     <div class="labels" id="labels" aria-hidden="true"></div>
@@ -95,8 +151,7 @@
 
     <div class="legend" id="legend" aria-live="polite"></div>
 
-    <button class="edge-toggle left" id="toggleLeft" type="button" aria-controls="leftPanel" aria-expanded="true" aria-label="Hide the target panel">‹</button>
-    <button class="edge-toggle right" id="toggleRight" type="button" aria-controls="rightPanel" aria-expanded="true" aria-label="Hide the results panel">›</button>
+    <button class="edge-toggle left" id="toggleSidebar" type="button" aria-controls="sidebar" aria-expanded="true" aria-label="Hide the sidebar">‹</button>
 
     <figure class="twin" id="twin">
       <button class="box-toggle" id="twinToggle" type="button" aria-expanded="true" aria-label="Hide the target globe">▾</button>
@@ -122,57 +177,20 @@
       <p id="loadingText">Loading NASA imagery…</p>
     </div>
   </section>
-
-  <aside class="panel panel-right" id="rightPanel" aria-label="Results">
-    <div class="tabs" role="tablist">
-      <button role="tab" id="tabResults" aria-selected="true" aria-controls="results" type="button">Ranked sites</button>
-      <button role="tab" id="tabExplore" aria-selected="false" aria-controls="explore" type="button">Explore</button>
-      <button role="tab" id="tabValidation" aria-selected="false" aria-controls="validation" type="button">Validation</button>
-    </div>
-
-    <section id="results" role="tabpanel" aria-labelledby="tabResults" tabindex="-1">
-      <details class="discovery" open>
-        <summary>Discovery settings</summary>
-        <div class="topk">
-          <label for="topK">Show top <b class="num" id="topKValue">20</b> sites</label>
-          <input type="range" id="topK" min="5" max="100" step="5" value="20">
-        </div>
-        <label class="toggle disc-toggle"><input type="checkbox" id="newOnly" checked>
-          <span>New sites only <small>hide places within 500 km of a known analog</small></span></label>
-        <div class="topk">
-          <label for="spreadKm">Spread results: at least <b class="num" id="spreadValue">800 km</b> apart</label>
-          <input type="range" id="spreadKm" min="0" max="2000" step="100" value="800">
-        </div>
-        <div class="disc-row">
-          <label for="perCountry">Max per country</label>
-          <select id="perCountry">
-            <option value="0">no limit</option><option value="1">1</option>
-            <option value="2" selected>2</option><option value="3">3</option><option value="5">5</option>
-          </select>
-        </div>
-        <div class="topk">
-          <label for="tolerance">Permissible error <b class="num" id="toleranceValue">exact</b></label>
-          <input type="range" id="tolerance" min="0" max="3" step="0.25" value="0">
-          <small class="hint">Higher = a criterion counts as a full match anywhere within a band around the target,
-            sized from how confident the target value is.</small>
-        </div>
-      </details>
-      <div class="results-head">
-        <p class="hint" id="resultsSummary">Scoring…</p>
-        <div class="export">
-          <button class="ghost small" id="exportGeojson" type="button">GeoJSON</button>
-          <button class="ghost small" id="exportCsv" type="button">CSV</button>
-        </div>
-      </div>
-      <section class="compare" id="compare" hidden aria-label="Pinned sites"></section>
-      <ol class="site-list" id="siteList"></ol>
-      <article class="detail" id="detail" hidden></article>
-    </section>
-
-    <section id="explore" role="tabpanel" aria-labelledby="tabExplore" tabindex="-1" hidden></section>
-    <section id="validation" role="tabpanel" aria-labelledby="tabValidation" tabindex="-1" hidden></section>
-  </aside>
 </main>
+
+<dialog id="welcomeModal" aria-labelledby="welcomeTitle">
+  <div class="dialog-body" style="text-align: center; padding: 40px;">
+    <h2 id="welcomeTitle" style="font-size: 24px; margin-bottom: 10px;">Welcome to TerraNova</h2>
+    <p style="margin-bottom: 30px; font-size: 15px;">Discover places on Earth that act as analogs for Moon and Mars base sites, based on NASA data.<br>To get started, choose a target below:</p>
+    <div id="welcomeTargets" role="radiogroup" aria-label="Target site" class="target-grid" style="justify-content: center; max-width: 600px; margin: 0 auto;">
+      <!-- Populated dynamically like #targets -->
+    </div>
+    <div style="margin-top: 30px;">
+      <button class="primary" id="welcomeStartBtn" type="button" disabled>Select a target to start</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="methodDialog" aria-labelledby="methodTitle">
   <div class="dialog-body">
