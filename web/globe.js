@@ -134,7 +134,7 @@ export class Globe {
     this.scene.add(this.overlay);
     this.scene.add(graticule(1.004));
     this.scene.add(atmosphere(1.12, 0x4f9dff));
-    this.space = new SpaceScenery(this.scene, this.camera, { pixelRatio: this.renderer.getPixelRatio() });
+    this.space = new SpaceScenery(this.scene, this.camera, { pixelRatio: this.renderer.getPixelRatio(), settle: true });
     this.lastFrame = performance.now();
 
     this.raycaster = new THREE.Raycaster();

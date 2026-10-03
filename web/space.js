@@ -2,10 +2,11 @@
  * and the occasional comet streaking past behind the Earth. Decoration only:
  * sizes and distances are chosen to frame the globe, not to scale.
  *
- * The Moon and Mars hold their places on screen, like a backdrop: dragging or zooming
- * the globe never moves them. Each turns slowly on its own tilted axis (Mars inside a
- * thin dusty haze); the turning stops under reduced motion. They sit behind the Earth,
- * so a close zoom covers them. */
+ * The Moon and Mars are real objects parked in space around the Earth. The Earth is the
+ * point of reference: dragging turns your view around it, so the sky behind changes and
+ * the Moon and Mars come into view (or slip behind you) as they would from orbit. They
+ * are placed once, behind the Earth as first seen, so they start in view; each turns
+ * slowly on its own tilted axis (Mars inside a thin dusty haze), still under reduced motion. */
 
 import * as THREE from "three";
 
@@ -69,7 +70,7 @@ function cometMaterial(pixelRatio) {
 
 export class SpaceScenery {
   /* scene, camera: the globe's; radius: the Earth's radius in scene units. */
-  constructor(scene, camera, { radius = 1, pixelRatio = 1, comets = true, assets = "assets" } = {}) {
+  constructor(scene, camera, { radius = 1, pixelRatio = 1, comets = true, assets = "assets", settle = false } = {}) {
     this.scene = scene;
     this.camera = camera;
     this.radius = radius;
@@ -78,16 +79,23 @@ export class SpaceScenery {
     this.nextComet = performance.now() + 2500;
     this.pixelRatio = pixelRatio;
 
-    // Screen position (-1..1 across and up the view), size at the backdrop depth, axial
-    // tilt, and spin (radians per second: one turn in about 90 s for the Moon, 60 s for Mars).
+    // Where each body first appears (-1..1 across and up the first view), how far behind
+    // the Earth (in Earth radii), its apparent size there (radians), axial tilt, and spin
+    // (radians per second: one turn in about 90 s for the Moon, 60 s for Mars).
     const specs = [
-      { key: "moon", size: 0.38, x: 0.78, y: 0.55, tilt: 6.7, spin: 0.07 },
-      { key: "mars", size: 0.24, x: -0.72, y: 0.62, tilt: 25.2, spin: 0.105 },
+      { key: "moon", x: 0.78, y: 0.55, behind: 8, angular: 0.032, tilt: 6.7, spin: 0.07 },
+      { key: "mars", x: -0.72, y: 0.62, behind: 20, angular: 0.02, tilt: 25.2, spin: 0.105 },
     ];
-    this.depth = 12 * radius;
+    // Wait for the opening camera move to settle before placing them (the Finder flies to
+    // the top site first); the Home page places them at once.
+    this.settle = settle;
+    this.born = performance.now();
+    this.still = 0;
+    this.lastCam = new THREE.Vector3();
+    this.placed = false;
     this.bodies = specs.map((s) => {
       const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(s.size * radius, 48, 24),
+        new THREE.SphereGeometry(1, 48, 24),
         new THREE.MeshLambertMaterial({ color: 0x6a6a6a }),
       );
       mesh.rotation.z = s.tilt * DEG;
@@ -99,26 +107,40 @@ export class SpaceScenery {
       smallTexture(`${assets}/${s.key}_sm.jpg`).then((tex) => {
         mesh.material.dispose();
         // "transparent" only to join the pass that renderOrder sorts after the glow; fully opaque.
-        mesh.material = new THREE.MeshLambertMaterial({ map: tex, color: s.key === "mars" ? 0xd8d8d8 : 0xc4c4c4, transparent: true });
-        mesh.visible = true;
+        mesh.material = new THREE.MeshLambertMaterial({ map: tex, color: s.key === "mars" ? 0xd8d8d8 : 0xc4c4c4, transparent: true, opacity: 0 });
+        b.ready = true;
       }).catch(() => {});
-      if (s.key === "mars") mesh.add(haze(s.size * radius));
-      // The axis is fixed relative to the viewer; the body turns about it.
-      return { ...s, mesh, axis: new THREE.Quaternion().setFromEuler(mesh.rotation), angle: Math.random() * Math.PI * 2 };
+      if (s.key === "mars") mesh.add(haze(1));
+      const b = { ...s, mesh, axis: new THREE.Quaternion().setFromEuler(mesh.rotation), angle: Math.random() * Math.PI * 2, shown: 0 };
+      return b;
     });
   }
 
-  /* Pin a body to its spot on screen: same place, same size, same face, whatever the camera does. */
-  _pin(b) {
+  /* Park the bodies in space, once: behind the Earth as seen from the current view. */
+  _place() {
     const cam = this.camera;
     cam.updateMatrixWorld();
-    const d = this.depth;
-    const vf = Math.tan((cam.fov * DEG) / 2) * d;
+    const dist = cam.position.length();
+    const vf = Math.tan((cam.fov * DEG) / 2);
     const hf = vf * cam.aspect;
-    // Keep the whole disc inside narrow frames.
-    const x = Math.sign(b.x) * Math.min(Math.abs(b.x) * hf, hf - b.size * this.radius * 1.3);
-    b.mesh.position.copy(cam.localToWorld(new THREE.Vector3(x, b.y * vf, -d)));
-    b.mesh.quaternion.copy(cam.quaternion).multiply(b.axis).multiply(SPIN.setFromAxisAngle(Y_AXIS, b.angle));
+    for (const b of this.bodies) {
+      const d = dist + b.behind * this.radius;
+      const r = b.angular * d;
+      // Keep the whole disc inside narrow first views.
+      const x = Math.sign(b.x) * Math.min(Math.abs(b.x) * hf * d, hf * d - r * 1.3);
+      b.mesh.position.copy(cam.localToWorld(new THREE.Vector3(x, b.y * vf * d, -d)));
+      b.mesh.scale.setScalar(r);
+    }
+    this.placed = true;
+  }
+
+  /* The opening camera move has finished when the camera has kept still for a moment. */
+  _settled(dt) {
+    if (!this.settle) return true;
+    const moved = this.camera.position.distanceToSquared(this.lastCam) > 1e-8;
+    this.lastCam.copy(this.camera.position);
+    this.still = moved ? 0 : this.still + dt;
+    return this.still > 0.6 || performance.now() - this.born > 6000;
   }
 
   _spawnComet() {
@@ -151,9 +173,18 @@ export class SpaceScenery {
   }
 
   update(dt) {
+    const step = Math.min(dt || 0, 0.1);
+    if (!this.placed && this._settled(step)) this._place();
     for (const b of this.bodies) {
-      if (!REDUCED) b.angle += b.spin * Math.min(dt || 0, 0.1);
-      this._pin(b);
+      if (!REDUCED) b.angle += b.spin * step;
+      b.mesh.quaternion.copy(b.axis).multiply(SPIN.setFromAxisAngle(Y_AXIS, b.angle));
+      // Fade in once placed and textured.
+      const show = this.placed && b.ready;
+      b.mesh.visible = show;
+      if (show && b.shown < 1) {
+        b.shown = REDUCED ? 1 : Math.min(1, b.shown + step / 0.9);
+        b.mesh.material.opacity = b.shown;
+      }
     }
     if (!this.cometsOn) return;
     const now = performance.now();
