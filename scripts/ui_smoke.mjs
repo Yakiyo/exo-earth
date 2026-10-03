@@ -11,7 +11,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const BASE = process.argv[2] || "http://127.0.0.1:8000";
+const BASE = process.argv[2] || "http://127.0.0.1:8000/finder.html#target=moon";
 const CHROME = process.env.CHROME || (process.platform === "win32"
   ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
   : "google-chrome");

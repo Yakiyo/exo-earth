@@ -34,7 +34,7 @@ TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}
 IMAGERY = {
     "s2": {
         "url": "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg",
-        "zoom": DEM_ZOOM + 1,
+        "zoom": DEM_ZOOM,
         "credit": (
             "EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH "
             "(Contains modified Copernicus Sentinel data 2020)"

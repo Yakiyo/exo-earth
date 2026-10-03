@@ -3,7 +3,7 @@
 
 import { Globe, Twin } from "./globe.js";
 import { GodsEye, SUN_PRESETS } from "./godseye.js";
-import { Peek3D } from "./peek3d.js";
+
 import { FlatMap } from "./flatmap.js";
 import { LAYER_RAMPS, cssGradient, paint, percentileOf, quantile, rampPosition, sortedFinite } from "./colors.js";
 import { initStarfield } from "./starfield.js";
@@ -247,43 +247,13 @@ async function showPeek(lat, lon, x, y, html) {
     box.prepend(img);
     box.insertAdjacentHTML("beforeend", `<span class="src">${esc(thumb.credit)}</span>`);
   }
-  upgradePeek(cell, token);
 }
 
-/* Replace the flat preview with a rotating, relief-shaded 3D block when available. */
-let peek3d = null;
-const peekInfo = new Map();
-async function upgradePeek(cell, token) {
-  if (Math.abs(cell.lat) > 83) return;
-  try {
-    let info = peekInfo.get(cell.key);
-    if (!info) {
-      const box = $("tooltip").querySelector(".peek-img");
-      box?.insertAdjacentHTML("beforeend", `<span class="peek-badge">building 3D…</span>`);
-      info = await api(`/api/peek?lat=${cell.lat}&lon=${cell.lon}`);
-      peekInfo.set(cell.key, info);
-    }
-    if (token !== peekToken) return;
-    peek3d = peek3d || new Peek3D();
-    const canvas = await peek3d.show(info);
-    const box = $("tooltip").querySelector(".peek-img");
-    if (token !== peekToken || !box) return;
-    box.querySelector("img")?.remove();
-    box.querySelector(".peek-badge")?.remove();
-    box.querySelector(".cellbox")?.remove();
-    box.prepend(canvas);
-    const src = box.querySelector(".src");
-    const note = `Sentinel-2 2020 + relief · 3D · ${Math.round(info.relief_m)} m relief`;
-    if (src) src.textContent = note; else box.insertAdjacentHTML("beforeend", `<span class="src">${esc(note)}</span>`);
-  } catch {
-    $("tooltip").querySelector(".peek-badge")?.remove();
-  }
-}
+/* The 3D peek functionality has been moved to God's Eye. */
 
 function hidePeek() {
   peekToken++;
   clearTimeout(dwell);
-  peek3d?.stop();
   const tip = $("tooltip");
   tip.hidden = true;
   tip.classList.remove("peek");
@@ -838,6 +808,7 @@ function selectResult(r) {
   renderMarkers();
   if (state.view === "globe") globe.flyTo(r.lat, r.lon, (globe.fitDistance || 3.6) * 0.78);
   else flat.flyTo(r.lat, r.lon, 3);
+  openGodsEye(r);
 }
 
 async function pickLocation(lat, lon) {
@@ -868,6 +839,7 @@ async function refreshPick() {
       return;
     }
     renderDetail(r);
+    openGodsEye(r);
   } catch (err) {
     toast(`Could not inspect that location: ${err.message}`);
   }
@@ -1066,7 +1038,7 @@ function viewsStrip(r) {
       <figcaption>Latest NASA view · VIIRS NOAA-20 · ${day}<br><small>daily, 250 m, may show clouds · needs internet</small></figcaption></figure>
     <figure><img src="${esc(relief)}" alt="Relief-shaded Sentinel-2 image" loading="lazy"
       onerror="this.closest('figure').classList.add('missing')">
-      <figcaption>Terrain relief · Sentinel-2 2020<br><small>hillshade from elevation · hover the site for 3D</small></figcaption></figure>
+      <figcaption>Terrain relief · Sentinel-2 2020<br><small>3D terrain available in God's Eye</small></figcaption></figure>
   </div>`;
 }
 

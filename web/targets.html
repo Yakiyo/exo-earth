@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>TerraNova - Select Target</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js" } }
+  </script>
+
+  <style>
+    /* Extend styles for targets page */
+    body {
+      /* overflow-x: hidden removed */
+    }
+
+    #starfield {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+    }
+
+    .targets-container {
+      position: relative;
+      z-index: 10;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 80px 20px;
+      box-sizing: border-box;
+    }
+
+    .targets-title {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: var(--accent);
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+
+    .targets-subtitle {
+      font-size: 1.3rem;
+      color: var(--ink-2);
+      margin-bottom: 60px;
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+
+    .targets-grid {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    .target-card {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 30px;
+      width: 280px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateY(30px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .target-card:hover {
+      background: var(--panel);
+      border-color: var(--accent-soft);
+      box-shadow: 0 10px 30px rgba(0, 229, 255, 0.1);
+      transform: translateY(-5px) !important;
+    }
+
+    .target-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--bg);
+      margin-bottom: 20px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      background-size: cover;
+      background-position: center;
+    }
+
+    .target-name {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 10px 0;
+      font-family: var(--mono);
+      color: var(--ink);
+    }
+
+    .target-desc {
+      font-size: 1.1rem;
+      color: var(--ink-3);
+      line-height: 1.4;
+      margin: 0;
+    }
+    
+    .welcome-topbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 20;
+      background: transparent;
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="starfield"></canvas>
+  
+  <header class="topbar welcome-topbar">
+    <div class="brand">
+      <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px; color: inherit;">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="9" fill="var(--accent)"/>
+          <ellipse cx="16" cy="16" rx="15" ry="5" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-25 16 16)"/>
+        </svg>
+        <div>
+          <h1>TerraNova</h1>
+        </div>
+      </a>
+    </div>
+    <nav class="main-nav">
+      <a href="index.html" class="nav-link">Home</a>
+      <a href="targets.html" class="nav-link active">Targets</a>
+      <a href="finder.html#target=moon" class="nav-link">Finder</a>
+    </nav>
+  </header>
+
+  <div class="targets-container">
+    <h1 class="targets-title" id="title">Select Destination</h1>
+    <p class="targets-subtitle" id="subtitle">Choose a target to find its Earth analogues.</p>
+    
+    <div class="targets-grid" id="targetsGrid">
+      <!-- Injected by JS -->
+    </div>
+  </div>
+
+
+
+
+
+  <script type="module" src="targets.js"></script>
+</body>
+</html>

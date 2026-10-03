@@ -267,6 +267,7 @@ export class GodsEye {
       await this._loadImagery(data);
     } catch (err) {
       $("geStatus").textContent = `Could not load this site: ${err.message}`;
+      $("geLoading").hidden = true;
     }
   }
 
