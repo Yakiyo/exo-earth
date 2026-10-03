@@ -57,8 +57,8 @@ or a list entry for a satellite preview card. Rest the cursor on any land for a 
 preview that spot. Click a site or any land for a small card with its score and a
 **God's Eye 3D** button; the full breakdown opens in the sidebar.
 
-On the map, numbered chips are the top 10, orange dots are ranks 11 and below, and white
-diamonds are known analogs. The Moon and Mars in the background are fixed in space: drag
+On the map, numbered chips are the top 10, orange dots are ranks 11 and below, and rockets
+are known analogs. The Moon and Mars in the background are fixed in space: drag
 the globe and they come into view or slip behind you, like the stars.
 
 **Previews** come from NASA GIBS (Blue Marble Next Generation, cloud-free, 2°×2°) and
@@ -71,7 +71,7 @@ fetch any spot live.
 
 Click a site and press **God's Eye 3D** on its card (or `E`). The app descends into a 3D
 block of the site's real terrain, about 140 km across and centred on the scored 0.5° cell
-(outlined in red). The first visit shows a short guide to the mouse and touch controls
+(outlined in red, the site marked with a red map pin). The first visit shows a short guide to the mouse and touch controls
 (**?** brings it back):
 
 * **Terrain:** AWS Terrain Tiles at zoom 10 (~150 m), mosaicked and measured on the server

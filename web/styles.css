@@ -536,8 +536,8 @@ pre.json { max-height: 260px; overflow: auto; font: 11px/1.5 var(--mono); color:
 .scatter .t { stroke: var(--tool); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
 .scatter .target, .scatter-legend .target { fill: none; stroke: var(--tool); stroke-width: 2; }
 .scatter .site, .scatter-legend .site { fill: var(--score); stroke: var(--bg); stroke-width: 1.5; cursor: pointer; }
-.scatter .analog, .scatter-legend .analog { fill: var(--ink); stroke: var(--bg); stroke-width: 1.5; cursor: pointer; }
-.scatter .site:hover, .scatter .analog:hover { stroke: var(--ink); stroke-width: 2; }
+.scatter .analog-rocket { font-size: 13px; cursor: pointer; }
+.scatter .site:hover { stroke: var(--ink); stroke-width: 2; }
 .scatter-tip { position: absolute; z-index: 3; pointer-events: none; padding: 6px 9px; font-size: 12px; border-radius: var(--r-sm); background: var(--overlay); border: 1px solid var(--line-2); max-width: 180px; }
 .scatter-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); margin: 8px 0 4px; }
 .scatter-legend span { display: inline-flex; gap: 5px; align-items: center; }
@@ -574,11 +574,12 @@ pre.json { max-height: 260px; overflow: auto; font: 11px/1.5 var(--mono); color:
 .marker.minor.active { background: var(--accent); }
 .marker.pinned { box-shadow: 0 0 0 3px rgba(124, 183, 255, 0.55); }
 .marker.known {
-  min-width: 9px; width: 9px; height: 9px; padding: 0; border-radius: 1px;
-  transform: translate(-50%, -50%) rotate(45deg);
-  background: var(--ink); border: 1px solid var(--bg); cursor: help;
+  min-width: 0; width: auto; height: auto; padding: 0; border: 0; border-radius: 0; background: none;
+  font: 16px/1 "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); cursor: help;
 }
-.marker.known:hover { transform: translate(-50%, -50%) rotate(45deg) scale(1.35); }
+.marker.known.other { opacity: 0.55; }
+.marker.known:hover, .marker.known:focus-visible { transform: translate(-50%, -50%) scale(1.3); border-color: transparent; opacity: 1; }
 .marker.pick { min-width: 14px; width: 14px; height: 14px; padding: 0; border: 2px solid var(--ink); background: transparent; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5); pointer-events: none; animation: pick 600ms var(--ease) both; }
 @keyframes pick { from { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } }
 
@@ -679,7 +680,7 @@ pre.json { max-height: 260px; overflow: auto; font: 11px/1.5 var(--mono); color:
 .mk { display: inline-grid; place-items: center; flex: none; }
 .mk.top { min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; border: 1px solid rgba(238, 240, 243, 0.7); background: var(--bg); font: 500 10px/1 var(--mono); font-style: normal; color: var(--ink); }
 .mk.minor { width: 10px; height: 10px; border-radius: 50%; background: var(--score); }
-.mk.known { width: 8px; height: 8px; margin: 0 1px; transform: rotate(45deg); background: var(--ink); }
+.mk.known { font-size: 13px; font-style: normal; line-height: 1; }
 .legend .hist { display: flex; align-items: flex-end; gap: 1px; height: 26px; margin-top: 11px; }
 .legend .hist i { flex: 1; background: var(--line-2); border-radius: 1px 1px 0 0; min-height: 1px; }
 .legend .hist i.hot { background: var(--score); }

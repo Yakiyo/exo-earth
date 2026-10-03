@@ -55,6 +55,44 @@ function elevColour(t) {
   return ELEV_STOPS[ELEV_STOPS.length - 1][1].map((v) => v / 255);
 }
 
+/* The site marker: a red GPS map pin, drawn once on a canvas and shown as a sprite, so it
+ * always stands upright, keeps the same size on screen, and its tip touches the site. */
+function gpsPin() {
+  const w = 128, h = 168;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d");
+  const cx = w / 2, cy = 58, r = 50, tip = h - 6;
+  const pin = new Path2D();
+  // Teardrop: a circle whose sides run down in tangents to a point.
+  const a = Math.asin(r / (tip - cy));
+  pin.moveTo(cx, tip);
+  pin.arc(cx, cy, r, Math.PI / 2 + a, Math.PI / 2 - a);
+  pin.closePath();
+  g.shadowColor = "rgba(0, 0, 0, 0.45)";
+  g.shadowBlur = 8;
+  g.shadowOffsetY = 3;
+  g.fillStyle = "#e03c31";
+  g.fill(pin);
+  g.shadowColor = "transparent";
+  g.lineWidth = 3;
+  g.strokeStyle = "#a8261d";
+  g.stroke(pin);
+  g.beginPath();
+  g.arc(cx, cy, 19, 0, Math.PI * 2);
+  g.fillStyle = "#ffffff";
+  g.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, sizeAttenuation: false, depthTest: false }));
+  sprite.center.set(0.5, 0);   // anchor at the tip
+  sprite.scale.set(0.05, 0.05 * (h / w), 1);
+  sprite.renderOrder = 30;
+  sprite.visible = false;
+  return sprite;
+}
+
 function exagLabel(x) {
   return x === 1 ? "1× true scale" : `${x.toFixed(1)}× exaggerated`;
 }
@@ -108,6 +146,8 @@ export class GodsEye {
     this.probeMarker = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x7cb7ff }));
     this.probeMarker.visible = false;
     this.scene.add(this.probeMarker);
+    this.pin = gpsPin();
+    this.scene.add(this.pin);
     this.profilePoints = [];
     this.profileMode = false;
     this.sunPlaying = false;
@@ -380,7 +420,7 @@ export class GodsEye {
   /* -------------------------------------------------------------- build */
 
   _build(data) {
-    for (const obj of [this.mesh, this.cellLine, this.pin]) {
+    for (const obj of [this.mesh, this.cellLine]) {
       if (!obj) continue;
       this.scene.remove(obj);
       obj.geometry.dispose();
@@ -537,11 +577,10 @@ export class GodsEye {
   _buildOverlays() {
     this._buildSkirt();
     if (this.profilePoints.length === 2) this._drawProfile();
-    for (const obj of [this.cellLine, this.pin]) {
-      if (!obj) continue;
-      this.scene.remove(obj);
-      obj.geometry.dispose();
-      obj.material.dispose();
+    if (this.cellLine) {
+      this.scene.remove(this.cellLine);
+      this.cellLine.geometry.dispose();
+      this.cellLine.material.dispose();
     }
     const { nw, se } = this.data.cell;
     const pts = [];
@@ -561,14 +600,8 @@ export class GodsEye {
     this.scene.add(this.cellLine);
 
     const [su, sv] = this.data.site;
-    const ground = this._toWorld(su, sv);
-    const tall = this.sizeKm * 0.06;
-    const geo = new THREE.CylinderGeometry(0.0, this.sizeKm * 0.004, tall, 12);
-    geo.translate(0, tall / 2, 0);
-    this.pin = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xe03c31 }));
-    this.pin.rotation.x = Math.PI;
-    this.pin.position.copy(ground).add(new THREE.Vector3(0, tall, 0));
-    this.scene.add(this.pin);
+    this.pin.position.copy(this._toWorld(su, sv));
+    this.pin.visible = true;
   }
 
   _applyMaterial() {

@@ -47,7 +47,9 @@ Data ramps (`web/colors.js`) are part of the science, not the chrome: do not res
   `--line-2` hairline. Radius 8 px, height 34 px (30 px small, 44 px on Home). Every
   button has hover, active (1 px press), disabled and focus states.
 - **Icon buttons:** 36 × 36 px, Phosphor icon from `web/icons.svg` via `icon(name)` in
-  `web/ui.js`. Never emoji or Unicode arrows as icons.
+  `web/ui.js`. Never emoji or Unicode arrows as icons. One deliberate exception (team
+  choice): known analog sites are marked with a rocket emoji on the map, in the legend and
+  in the Explore scatter, and God's Eye marks the site with a red map pin.
 - **Headings over sections:** a real `h2`/`h3` at 13 px semibold. No uppercase
   eyebrows, no numbered kickers.
 - **Lists of results:** rows divided by hairlines, not cards inside cards.

@@ -323,9 +323,12 @@ function renderMarkers() {
       const el = document.createElement("div");
       el.className = "marker known";
       el.dataset.key = `known-${site.name}`;
+      el.textContent = "🚀";
+      el.setAttribute("role", "img");
       el.setAttribute("aria-label", `Known analog: ${site.name}`);
       el.tabIndex = 0;
-      if (body && !site.bodies.includes(body)) el.style.filter = "brightness(0.6)";
+      // Analogs of the other body are dimmed.
+      if (body && !site.bodies.includes(body)) el.classList.add("other");
       markerPeek(el, site.lat, site.lon, `<div class="t-title">${esc(site.name)}</div>
         <div class="t-sub">Known ${esc(site.bodies.join(" & "))} analog · ${esc(site.kind)}</div>
         <div class="t-sub">${esc(site.use)}</div>`);
@@ -457,7 +460,7 @@ function paintLayer() {
       <div class="ramp" style="background:${cssGradient("score")}"></div>
       <div class="scale abs num"><span style="left:0">top 50%</span><span style="left:80%">top 10%</span><span style="left:98%">1%</span></div>
       ${histogram()}
-      <div class="marks"><span><i class="mk top">3</i>top 10</span><span><i class="mk minor"></i>rank 11 and below</span><span><i class="mk known"></i>known analog</span></div>
+      <div class="marks"><span><i class="mk top">3</i>top 10</span><span><i class="mk minor"></i>rank 11 and below</span><span><i class="mk known" aria-hidden="true">🚀</i>known analog</span></div>
       <div class="note">Brighter = closer match; uncoloured land is in the bottom half. Bars: how many land cells
         reach each score (orange = top 10%, at least ${fmtPct(q(0.9))}).</div>
       <div class="credit-line">Earth: <a href="${esc(state.sources.basemaps.earth.url)}" target="_blank" rel="noopener">${esc(state.sources.basemaps.earth.credit)}</a></div>`;
@@ -1204,10 +1207,10 @@ async function renderExplore() {
        <circle cx="${sx(tx)}" cy="${sy(ty)}" r="8" class="target"/><text x="${sx(tx) + 11}" y="${sy(ty) - 8}" class="tl">target</text>` : "";
   const marks = pts.map((p, i) => p.kind === "site"
     ? `<circle data-i="${i}" cx="${sx(p.x)}" cy="${sy(p.y)}" r="${p.r.rank <= 10 ? 6 : 4.5}" class="site"/>`
-    : `<rect data-i="${i}" x="${sx(p.x) - 5}" y="${sy(p.y) - 5}" width="10" height="10" transform="rotate(45 ${sx(p.x)} ${sy(p.y)})" class="analog"/>`).join("");
+    : `<text data-i="${i}" x="${sx(p.x)}" y="${sy(p.y)}" class="analog-rocket" text-anchor="middle" dominant-baseline="central">🚀</text>`).join("");
   box.innerHTML = `
     <p class="hint">Where do the top sites sit on two criteria at once? Each dot is a ranked site, each diamond a
-      known analog; the crosshair is the target. Hover for details, click to open.</p>
+      known analog (rocket); the crosshair is the target. Hover for details, click to open.</p>
     <div class="axes">
       <label>X <select id="exX">${opts(xKey)}</select></label>
       <label>Y <select id="exY">${opts(yKey)}</select></label>
@@ -1222,7 +1225,7 @@ async function renderExplore() {
     </div>
     <div class="scatter-legend">
       <span><svg width="12" height="12"><circle cx="6" cy="6" r="5" class="site"/></svg> ranked site</span>
-      <span><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" transform="rotate(45 6 6)" class="analog"/></svg> known analog</span>
+      <span><span aria-hidden="true">🚀</span> known analog</span>
       <span><svg width="14" height="14"><circle cx="7" cy="7" r="5.5" class="target"/></svg> target</span>
     </div>
     <p class="hint">${pts.filter((p) => p.kind === "site").length} ranked sites · ${pts.filter((p) => p.kind === "analog").length} known analogs with data.
@@ -1237,8 +1240,8 @@ async function renderExplore() {
       tip.hidden = false;
       const rect = svg.getBoundingClientRect();
       const k = rect.width / W;
-      tip.style.left = `${Math.min(rect.width - 170, Number(el.getAttribute("cx") || Number(el.getAttribute("x")) + 5) * k + 10)}px`;
-      tip.style.top = `${Number(el.getAttribute("cy") || Number(el.getAttribute("y")) + 5) * k - 10}px`;
+      tip.style.left = `${Math.min(rect.width - 170, Number(el.getAttribute("cx") || el.getAttribute("x")) * k + 10)}px`;
+      tip.style.top = `${Number(el.getAttribute("cy") || el.getAttribute("y")) * k - 10}px`;
     });
     el.addEventListener("mouseleave", () => { tip.hidden = true; });
     el.addEventListener("click", () => {
