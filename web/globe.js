@@ -342,7 +342,7 @@ export class Globe {
     const frame = performance.now();
     const dt = Math.min(0.1, (frame - this.lastFrame) / 1000);
     this.lastFrame = frame;
-    if (!this.visible) return;
+    if (!this.visible || document.hidden) return;
     if (this.flight) {
       const f = this.flight;
       const t = Math.min(1, (performance.now() - f.start) / f.duration);
@@ -418,8 +418,8 @@ export class Twin {
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
     this.light = new THREE.DirectionalLight(0xffffff, 2.2);
     this.scene.add(this.light);
-    this.pin = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 16), new THREE.MeshBasicMaterial({ color: 0xf08a4b }));
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.07, 0.1, 32), new THREE.MeshBasicMaterial({ color: 0xf08a4b, transparent: true, side: THREE.DoubleSide }));
+    this.pin = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 16), new THREE.MeshBasicMaterial({ color: 0xe03c31 }));
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.07, 0.1, 32), new THREE.MeshBasicMaterial({ color: 0xe03c31, transparent: true, side: THREE.DoubleSide }));
     this.scene.add(this.pin, this.ring);
     this.textures = {};
     this.home = new THREE.Vector3(0, 0, 4.2);
@@ -451,6 +451,11 @@ export class Twin {
     this.renderer.setAnimationLoop((t) => this.tick(t));
   }
 
+  /* Stop drawing while hidden (collapsed, or under the full-screen 3D view). */
+  setPaused(paused) {
+    this.paused = paused;
+  }
+
   /* Fly back to the view of the target site. */
   reset() {
     const from = this.camera.position.clone();
@@ -477,6 +482,7 @@ export class Twin {
   }
 
   tick(t) {
+    if (this.paused || document.hidden) return;
     if (this.flight) {
       const f = this.flight;
       const k = Math.min(1, (performance.now() - f.start) / f.duration);

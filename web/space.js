@@ -69,7 +69,7 @@ export class SpaceScenery {
       mesh.rotation.z = (s.key === "mars" ? 25 : 6.7) * DEG;
       mesh.visible = false;
       scene.add(mesh);
-      smallTexture(`${assets}/${s.key}.jpg`).then((tex) => {
+      smallTexture(`${assets}/${s.key}_sm.jpg`).then((tex) => {
         mesh.material.dispose();
         mesh.material = new THREE.MeshLambertMaterial({ map: tex, color: s.key === "mars" ? 0xd8d8d8 : 0xc4c4c4 });
         mesh.visible = true;

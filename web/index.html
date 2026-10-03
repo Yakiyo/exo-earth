@@ -2,165 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>TerraNova - Discover Analog Sites</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+  <title>TerraNova · Earth analogs for Moon and Mars bases</title>
+  <meta name="description" content="TerraNova scores every land cell on Earth against Moon and Mars base sites using NASA data, and ranks the closest analogs.">
+  <meta name="theme-color" content="#06090f">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='14' cy='18' r='10' fill='none' stroke='%23eef0f3' stroke-width='2.4'/%3E%3Ccircle cx='25.5' cy='6.5' r='4.5' fill='%23e03c31'/%3E%3C/svg%3E">
+  <link rel="preload" href="vendor/fonts/barlow-condensed-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
   <script type="importmap">
     { "imports": { "three": "./vendor/three/three.module.min.js" } }
   </script>
-
-  <style>
-    /* Specific styles for the welcome page */
-    body {
-      /* overflow: hidden removed to allow scrolling */
-    }
-    
-    #starfield {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      min-height: 100vh;
-      z-index: 0;
-    }
-
-    .welcome-container {
-      position: relative;
-      width: 100%;
-      min-height: 100vh;
-      display: flex;
-      z-index: 10;
-      padding-top: 60px; /* Space for the topbar */
-    }
-
-    .content-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 0 5%;
-      max-width: 50%;
-    }
-
-    .globe-panel {
-      flex: 1;
-      position: relative;
-    }
-
-    #welcomeGlobeCanvas {
-      width: 100%;
-      height: 100%;
-      outline: none;
-    }
-
-    .welcome-title {
-      font-size: clamp(2.5rem, 6vw, 4.5rem);
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin-bottom: 0.5rem;
-      /* Remove background-clip gradient to fix clipping and match theme */
-      color: var(--accent);
-      line-height: 1.1;
-      opacity: 0;
-      transform: translateY(30px);
-    }
-
-    .subtext {
-      font-size: 1.5rem;
-      line-height: 1.6;
-      color: var(--ink-2);
-      margin-bottom: 2.5rem;
-      max-width: 480px;
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    
-    /* Using .primary class from styles.css for the button, adding animation styles */
-    .explore-btn {
-      align-self: flex-start;
-      opacity: 0;
-      transform: translateY(30px);
-      padding: 12px 24px;
-      font-size: 1.125rem;
-    }
-
-    .welcome-topbar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      z-index: 20;
-      background: transparent;
-      border-bottom: none;
-    }
-
-    @media (max-width: 900px) {
-      .welcome-container {
-        flex-direction: column;
-      }
-      .content-panel {
-        max-width: 100%;
-        padding: 5%;
-        padding-top: 100px;
-        align-items: center;
-        text-align: center;
-      }
-      .welcome-title {
-        font-size: 3rem;
-      }
-      .subtext {
-        font-size: 1.2rem;
-      }
-      .explore-btn {
-        align-self: center;
-      }
-      .globe-panel {
-        min-height: 400px;
-      }
-    }
-  </style>
 </head>
 <body>
+  <a class="skip" href="#main">Skip to content</a>
+  <canvas id="starfield" aria-hidden="true"></canvas>
 
-  <canvas id="starfield"></canvas>
-  
-  <header class="topbar welcome-topbar">
+  <header class="topbar">
     <div class="brand">
-      <a href="index.html" style="text-decoration: none; display: flex; align-items: center; gap: 12px; color: inherit;">
-        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="9" fill="var(--accent)"/>
-          <ellipse cx="16" cy="16" rx="15" ry="5" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-25 16 16)"/>
-        </svg>
-        <div>
-          <h1>TerraNova</h1>
-        </div>
+      <a href="index.html" aria-label="TerraNova home">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="14" cy="18" r="10" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="25.5" cy="6.5" r="4" fill="#e03c31"/></svg>
+        <span class="wordmark">TerraNova</span>
       </a>
     </div>
-    <nav class="main-nav">
-      <a href="index.html" class="nav-link active">Home</a>
+    <nav class="main-nav" aria-label="Main">
+      <a href="index.html" class="nav-link" aria-current="page">Home</a>
       <a href="targets.html" class="nav-link">Targets</a>
-      <a href="finder.html#target=moon" class="nav-link">Finder</a>
+      <a href="finder.html" class="nav-link">Finder</a>
     </nav>
   </header>
 
-  <div class="welcome-container">
-    <div class="content-panel">
-      <h1 class="welcome-title" id="title">TerraNova</h1>
-      <p class="subtext" id="subtext">Discover places on Earth that act as analogs for Moon and Mars base sites, scored from NASA data.</p>
-      <button class="primary explore-btn" id="exploreBtn" type="button">Start Your Journey</button>
+  <main id="main" class="home">
+    <div class="home-copy">
+      <h1 class="reveal">Earth analogs for Moon and Mars bases</h1>
+      <p class="lede reveal" style="--d: 1">Every land cell on Earth, scored against real landing sites from NASA climate, terrain and vegetation data.</p>
+      <div class="home-actions reveal" style="--d: 2">
+        <a class="btn btn-primary" href="targets.html">Choose a target
+          <svg class="i" aria-hidden="true"><use href="icons.svg#i-arrow-right"></use></svg></a>
+        <a class="btn btn-ghost" href="finder.html">Open the Finder</a>
+      </div>
+      <dl class="home-facts reveal" id="facts" style="--d: 3" hidden></dl>
     </div>
-    <div class="globe-panel">
-      <canvas id="welcomeGlobeCanvas"></canvas>
+    <div class="home-globe">
+      <canvas id="welcomeGlobeCanvas" role="img" aria-label="Earth, with the Moon and Mars in the background"></canvas>
     </div>
-  </div>
+  </main>
 
-
-
-
+  <footer class="site-foot">
+    <span>Built for the NASA Space Apps Challenge 2026.</span>
+    <span>Data: NASA POWER, NASA GIBS (MODIS, Blue Marble), AWS Terrain Tiles, Natural Earth.</span>
+  </footer>
 
   <script type="module" src="welcome.js"></script>
 </body>

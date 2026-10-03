@@ -1,83 +1,80 @@
+/* Background stars behind the pages: a fixed, viewport-sized 2D canvas.
+ * Gentle twinkle and a small parallax that eases toward the pointer. Draws once and
+ * stops under reduced motion, and pauses while the tab is hidden or when asked
+ * (the Finder pauses it while the full-screen 3D view is open). */
+
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 export function initStarfield(canvasId) {
   const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  let width, height;
+  if (!canvas) return { pause() {}, resume() {} };
+  const ctx = canvas.getContext("2d");
+  let width = 0;
+  let height = 0;
   let stars = [];
-  const numStars = 200;
-  let mouseX = 0;
-  let mouseY = 0;
+  let frame = 0;
+  let paused = false;
+  const pointer = { x: 0, y: 0 };
+  const offset = { x: 0, y: 0 };
 
   function resize() {
-    // scale for retina displays
-    const dpr = window.devicePixelRatio || 1;
-    width = canvas.parentElement.clientWidth;
-    height = canvas.parentElement.clientHeight;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-    ctx.scale(dpr, dpr);
-    initStars();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // About one star per 7,000 square pixels, so phones and big screens look alike.
+    const count = Math.round(Math.min(320, (width * height) / 7000));
+    stars = Array.from({ length: count }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      z: Math.random() * 2 + 0.6,
+      size: Math.random() * 1.1 + 0.35,
+      alpha: Math.random() * 0.45 + 0.25,
+      phase: Math.random() * Math.PI * 2,
+    }));
+    if (REDUCED || paused) draw(0);
   }
 
-  function initStars() {
-    stars = [];
-    for (let i = 0; i < numStars; i++) {
-      stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        z: Math.random() * 2 + 0.1, // depth for parallax (larger = further away = slower)
-        size: Math.random() * 1.5 + 0.5,
-        baseAlpha: Math.random() * 0.5 + 0.3,
-      });
-    }
-  }
-
-  function draw() {
+  function draw(t) {
     ctx.clearRect(0, 0, width, height);
-    
-    // Calculate target offset based on mouse (small effect)
-    const targetOffsetX = (mouseX - width / 2) * 0.05;
-    const targetOffsetY = (mouseY - height / 2) * 0.05;
-
-    for (let i = 0; i < stars.length; i++) {
-      let star = stars[i];
-      
-      // Calculate star's actual position including parallax offset
-      let px = star.x - (targetOffsetX / star.z);
-      let py = star.y - (targetOffsetY / star.z);
-
-      // Wrap around edges to create continuous feel
-      if (px < 0) px += width;
-      else if (px > width) px -= width;
-      
-      if (py < 0) py += height;
-      else if (py > height) py -= height;
-
-      // Twinkle effect
-      const alpha = star.baseAlpha + Math.sin(Date.now() * 0.002 * star.size) * 0.2;
-      
-      ctx.beginPath();
-      ctx.arc(px, py, star.size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, alpha)})`;
-      ctx.fill();
+    offset.x += ((pointer.x - width / 2) * 0.02 - offset.x) * 0.05;
+    offset.y += ((pointer.y - height / 2) * 0.02 - offset.y) * 0.05;
+    for (const s of stars) {
+      let x = (s.x - offset.x / s.z) % width;
+      let y = (s.y - offset.y / s.z) % height;
+      if (x < 0) x += width;
+      if (y < 0) y += height;
+      const a = REDUCED ? s.alpha : s.alpha + Math.sin(t * 0.0012 * s.size + s.phase) * 0.15;
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = "#eef0f3";
+      ctx.fillRect(x, y, s.size, s.size);
     }
-    
-    requestAnimationFrame(draw);
+    ctx.globalAlpha = 1;
   }
 
-  window.addEventListener('resize', resize);
-  window.addEventListener('mousemove', (e) => {
-    // Only track mouse within the stage to avoid weird jumps if tracking body
-    const rect = canvas.parentElement.getBoundingClientRect();
-    if (e.clientX >= rect.left && e.clientX <= rect.right && 
-        e.clientY >= rect.top && e.clientY <= rect.bottom) {
-      mouseX = e.clientX - rect.left;
-      mouseY = e.clientY - rect.top;
-    }
-  });
+  function loop(t) {
+    frame = 0;
+    if (paused || document.hidden) return;
+    draw(t);
+    frame = requestAnimationFrame(loop);
+  }
 
+  function start() {
+    if (!REDUCED && !paused && !frame && !document.hidden) frame = requestAnimationFrame(loop);
+  }
+
+  window.addEventListener("resize", resize);
+  window.addEventListener("pointermove", (e) => { pointer.x = e.clientX; pointer.y = e.clientY; }, { passive: true });
+  document.addEventListener("visibilitychange", start);
+  pointer.x = window.innerWidth / 2;
+  pointer.y = window.innerHeight / 2;
   resize();
-  draw();
+  if (REDUCED) draw(0); else start();
+
+  return {
+    pause() { paused = true; if (frame) cancelAnimationFrame(frame); frame = 0; },
+    resume() { paused = false; start(); },
+  };
 }

@@ -1,104 +1,105 @@
-import * as THREE from './vendor/three/three.module.min.js';
-import { OrbitControls } from './vendor/three/OrbitControls.js';
-import { initStarfield } from './starfield.js';
-import { SpaceScenery } from './space.js';
+/* Home page: a slowly turning Earth with the Moon and Mars behind it, and three
+ * facts read from the API (nothing is hard-coded). */
 
-// Initialize background starfield
-initStarfield('starfield');
+import * as THREE from "three";
+import { OrbitControls } from "./vendor/three/OrbitControls.js";
+import { initStarfield } from "./starfield.js";
+import { SpaceScenery } from "./space.js";
 
-// Setup Three.js Globe for the Welcome Page
-const canvas = document.getElementById('welcomeGlobeCanvas');
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+initStarfield("starfield");
+
+/* ------------------------------------------------------------------ globe */
+
+const canvas = document.getElementById("welcomeGlobeCanvas");
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-camera.position.z = 3.5;
-// Shift camera to the left to place the globe nicely on the right side of the screen
-camera.position.x = 0;
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+camera.position.set(-1.2, 0.9, 3.6);
 
-// Add OrbitControls for interactivity
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.enableZoom = false; // Disable zooming so it doesn't break layout
-controls.enablePan = false;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 1.0;
+const controls = new OrbitControls(camera, canvas);
+Object.assign(controls, {
+  enableDamping: true, dampingFactor: 0.06, enableZoom: false, enablePan: false,
+  autoRotate: !REDUCED, autoRotateSpeed: 0.45, rotateSpeed: 0.5,
+});
 
-// Update size
-function updateSize() {
-  const container = canvas.parentElement;
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-  renderer.setSize(width, height);
-  camera.aspect = width / height;
+const earth = new THREE.Mesh(
+  new THREE.SphereGeometry(1.2, 96, 48),
+  new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, color: 0x1a2230 }),
+);
+earth.rotation.z = 23.4 * Math.PI / 180;
+scene.add(earth);
+new THREE.TextureLoader().load("assets/earth.jpg", (tex) => {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  earth.material.map = tex;
+  earth.material.color.set(0xffffff);
+  earth.material.needsUpdate = true;
+});
+
+// Thin atmosphere rim.
+scene.add(new THREE.Mesh(
+  new THREE.SphereGeometry(1.26, 64, 32),
+  new THREE.ShaderMaterial({
+    vertexShader: `varying vec3 vN; varying vec3 vV;
+      void main() { vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `varying vec3 vN; varying vec3 vV;
+      void main() { float f = pow(1.0 - abs(dot(vN, vV)), 3.0); gl_FragColor = vec4(0.42, 0.62, 0.95, f * 0.7); }`,
+    side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+  }),
+));
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+// The Sun sits over the viewer's left shoulder, so the side facing you is in daylight
+// with a soft terminator on the right, whichever way the globe has turned.
+const sun = new THREE.DirectionalLight(0xfff4e6, 2.6);
+scene.add(sun);
+const SUN_OFFSET = new THREE.Vector3(-2.2, 1.6, 0.8);
+
+const space = new SpaceScenery(scene, camera, { radius: 1.2, pixelRatio: renderer.getPixelRatio() });
+
+function resize() {
+  const { clientWidth: w, clientHeight: h } = canvas.parentElement;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
-window.addEventListener('resize', updateSize);
-updateSize();
+new ResizeObserver(resize).observe(canvas.parentElement);
+resize();
 
-// Create Earth sphere
-const geometry = new THREE.SphereGeometry(1.2, 64, 64);
-const textureLoader = new THREE.TextureLoader();
-
-// Assuming earth.jpg is available in assets
-const earthTexture = textureLoader.load('assets/earth.jpg');
-
-const material = new THREE.MeshStandardMaterial({
-  map: earthTexture,
-  roughness: 0.8,
-  metalness: 0.1
-});
-
-const earth = new THREE.Mesh(geometry, material);
-// Rotate it slightly for a better angle
-earth.rotation.z = 23.5 * Math.PI / 180;
-scene.add(earth);
-
-// Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
-scene.add(ambientLight);
-
-const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
-directionalLight.position.set(5, 3, 5);
-scene.add(directionalLight);
-
-// Add slight blue rim light
-const rimLight = new THREE.DirectionalLight(0x4488ff, 1);
-rimLight.position.set(-5, 0, -5);
-scene.add(rimLight);
-
-// The Moon, Mars and passing comets behind the Earth.
-const space = new SpaceScenery(scene, camera, { radius: 1.2, pixelRatio: renderer.getPixelRatio() });
-let lastFrame = performance.now();
-
-// Render loop
-function animate() {
-  requestAnimationFrame(animate);
-  // Update controls
-  controls.update();
+let last = performance.now();
+renderer.setAnimationLoop(() => {
   const now = performance.now();
-  space.update(Math.min(0.1, (now - lastFrame) / 1000));
-  lastFrame = now;
+  if (document.hidden) { last = now; return; }
+  controls.update();
+  sun.position.copy(camera.position).add(SUN_OFFSET.clone().applyQuaternion(camera.quaternion));
+  space.update(Math.min(0.1, (now - last) / 1000));
+  last = now;
   renderer.render(scene, camera);
+});
+
+/* ------------------------------------------------------------------ facts */
+
+async function facts() {
+  try {
+    const [health, targets, analogs] = await Promise.all(
+      ["/api/health", "/api/targets", "/api/analogs"].map((u) => fetch(u).then((r) => (r.ok ? r.json() : Promise.reject()))),
+    );
+    const items = [
+      [Number(health.candidate_cells).toLocaleString("en-US"), "land cells scored"],
+      [String(targets.targets.length), "Moon and Mars targets"],
+      [String(analogs.sites.length), "known analogs checked"],
+    ];
+    const box = document.getElementById("facts");
+    box.innerHTML = items.map(([n, label]) => `<div><dt>${label}</dt><dd>${n}</dd></div>`).join("");
+    box.hidden = false;
+  } catch {
+    /* the page reads fine without them */
+  }
 }
-animate();
-
-// GSAP Animations
-document.addEventListener("DOMContentLoaded", () => {
-  // Initial entrance animations
-  gsap.to("#title", { opacity: 1, y: 0, duration: 1, ease: "power3.out", delay: 0.2 });
-  gsap.to("#subtext", { opacity: 1, y: 0, duration: 1, ease: "power3.out", delay: 0.4 });
-  gsap.to("#exploreBtn", { opacity: 1, y: 0, duration: 1, ease: "power3.out", delay: 0.6 });
-  
-  // Fade in the globe canvas
-  gsap.fromTo(canvas, { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 1.5, ease: "power2.out", delay: 0.5 });
-});
-
-
-
-// Page Transition
-document.getElementById('exploreBtn').addEventListener('click', () => {
-  window.location.href = 'targets.html';
-});
+facts();

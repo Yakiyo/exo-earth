@@ -141,7 +141,8 @@ export class ClimateSim {
   setPlaying(on) {
     this.playing = on && this.available;
     $("geDayPlay").setAttribute("aria-pressed", String(this.playing));
-    $("geDayPlay").textContent = this.playing ? "❚❚ Pause day" : "▶ Play a day";
+    $("geDayPlay").querySelector("use").setAttribute("href", `icons.svg#i-${this.playing ? "pause" : "play"}`);
+    $("geDayPlay").querySelector("span").textContent = this.playing ? "Pause the day" : "Play a day";
     if (this.playing) this._useClock();
   }
 
@@ -157,9 +158,7 @@ export class ClimateSim {
   _useClock() {
     if (!this.available) return;
     this.solar = true;
-    this.eye.sunPlaying = false;
-    $("geSunPlay").setAttribute("aria-pressed", "false");
-    $("geSunPlay").textContent = "▶ Play sun";
+    this.eye._setSunPlaying(false);
     this._applyClock();
   }
 
@@ -232,7 +231,7 @@ export class ClimateSim {
       const day = Math.min(1, Math.max(0, (this.trueElevation + 4) / 10));
       e.light.intensity *= day;
       e.hemi.intensity = 0.07 + 0.48 * day;
-      const sky = new THREE.Color(0x02040a).lerp(new THREE.Color(0x0d1522), day);
+      const sky = new THREE.Color(0x02040a).lerp(new THREE.Color(0x0a111c), day);
       e.scene.background = sky;
       if (e.scene.fog) e.scene.fog.color.copy(sky);
       e.stars.visible = day < 0.6;

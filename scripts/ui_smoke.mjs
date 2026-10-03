@@ -65,10 +65,43 @@ check("explore scatter drawn", (await js(`document.querySelectorAll('.scatter [d
 await js(`document.getElementById('tabValidation').click()`);
 await sleep(4000);
 check("validation controls table", (await js(`document.querySelectorAll('#validation table.controls tbody tr').length`)) > 5);
-await js(`document.getElementById('toggleLeft').click()`);
+await js(`document.getElementById('toggleSidebar').click()`);
 await sleep(600);
-check("globe keeps its width with a panel hidden", (await js(`document.querySelector('.stage').getBoundingClientRect().width`)) > 600);
-await js(`document.getElementById('toggleLeft').click()`);
+check("globe keeps its width with the sidebar hidden", (await js(`document.querySelector('.stage').getBoundingClientRect().width`)) > 600);
+await js(`document.getElementById('toggleSidebar').click()`);
+check("markers and the card are not hidden from screen readers", !(await js(`!!document.querySelector('.info-card')?.closest('[aria-hidden=true]')`)));
+
+// God's Eye behaves as a modal: focus moves in, Esc closes the guide before the view.
+await js(`localStorage.removeItem('tn-ge-guide')`);
+await js(`document.querySelector('.info-card [data-act=eye]').click()`);
+for (let i = 0; i < 60 && !(await js(`document.getElementById('geLoading').hidden`)); i++) await sleep(500);
+await sleep(800);
+check("God's Eye takes focus", await js(`document.getElementById('godseye').contains(document.activeElement)`));
+await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+await sleep(300);
+check("Esc closes the controls guide first", (await js(`document.getElementById('geGuide').hidden`)) && !(await js(`document.getElementById('godseye').hidden`)));
+await send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+for (let i = 0; i < 10 && !(await js(`document.getElementById('godseye').hidden`)); i++) await sleep(300);
+check("a second Esc closes God's Eye", await js(`document.getElementById('godseye').hidden`));
+
+// Links between pages and into the Finder.
+const page = async (path, wait) => {
+  await send("Page.navigate", { url: "about:blank" });
+  await sleep(200);
+  await send("Page.navigate", { url: `${BASE}/${path}` });
+  await sleep(wait);
+};
+const checked = `document.querySelector('.target-card[aria-checked=true] strong')?.textContent`;
+await page("finder.html", 12000);
+check("the Finder opens without a target in the link", (await js(`document.querySelectorAll('.site').length`)) >= 5);
+await page("finder.html#target=moon", 12000);
+check("#target=moon opens the lunar south pole", (await js(checked)) === "Lunar South Pole");
+await page("finder.html#target=custom", 12000);
+check("#target=custom opens the custom profile", (await js(checked)) === "Your own profile");
+await page("index.html", 3000);
+check("home links to the targets page", !!(await js(`document.querySelector('a.btn-primary[href="targets.html"]')`)));
+await page("targets.html", 3000);
+check("target cards are keyboard links", (await js(`document.querySelectorAll('a.dest-card[href^="finder.html#target="]').length`)) >= 6);
 
 let failed = 0;
 for (const c of checks) {

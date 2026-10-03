@@ -105,7 +105,7 @@ export class GodsEye {
     this.contour = { uOn: { value: 0 }, uInterval: { value: 100 }, uBase: { value: 0 }, uExag: { value: 2 },
       uInk: { value: new THREE.Color(1.0, 0.93, 0.8) } };
     this.raycaster = new THREE.Raycaster();
-    this.probeMarker = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x7cc4ff }));
+    this.probeMarker = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x7cb7ff }));
     this.probeMarker.visible = false;
     this.scene.add(this.probeMarker);
     this.profilePoints = [];
@@ -158,9 +158,7 @@ export class GodsEye {
     $("geProfileBtn").addEventListener("click", () => this._toggleProfileMode());
     $("geSunPlay").addEventListener("click", () => {
       this.climate.manualSun();
-      this.sunPlaying = !this.sunPlaying;
-      $("geSunPlay").setAttribute("aria-pressed", String(this.sunPlaying));
-      $("geSunPlay").textContent = this.sunPlaying ? "❚❚ Pause sun" : "▶ Play sun";
+      this._setSunPlaying(!this.sunPlaying);
     });
     let hoverFrame = 0;
     this.canvas.addEventListener("pointermove", (e) => {
@@ -180,6 +178,18 @@ export class GodsEye {
     $("geGuideOk").addEventListener("click", () => {
       $("geGuide").hidden = true;
       try { localStorage.setItem("tn-ge-guide", "1"); } catch { /* private mode: show again next time */ }
+      this.root.focus({ preventScroll: true });
+    });
+    // A modal view: Tab cycles through its own controls only.
+    this.root.tabIndex = -1;
+    this.root.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab") return;
+      const items = [...this.root.querySelectorAll("button, input, select, a[href], [tabindex='0']")]
+        .filter((el) => !el.disabled && el.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === this.root)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     });
   }
 
@@ -187,7 +197,10 @@ export class GodsEye {
   _guide(force = false) {
     let seen = false;
     try { seen = localStorage.getItem("tn-ge-guide") === "1"; } catch { /* storage blocked */ }
-    if (force || !seen) $("geGuide").hidden = false;
+    if (force || !seen) {
+      $("geGuide").hidden = false;
+      $("geGuideOk").focus({ preventScroll: true });
+    }
   }
 
   _showExaggeration() {
@@ -219,9 +232,8 @@ export class GodsEye {
   /* Back to how the view opened: camera, sun, surface, height, overlays and tools. */
   resetAll() {
     if (!this.mesh) return;
-    this.sunPlaying = false;
-    $("geSunPlay").setAttribute("aria-pressed", "false");
-    $("geSunPlay").textContent = "▶ Play sun";
+    this._setSunPlaying(false);
+    $("geError").hidden = true;
     this.drive = null;
     this.profilePoints = [];
     this._clearProfile();
@@ -252,9 +264,15 @@ export class GodsEye {
 
   async show(site, context) {
     this.open = true;
+    const wasOpen = !this.root.hidden && !this.root.classList.contains("leaving");
+    this.root.classList.remove("leaving");
     this.root.hidden = false;
-    this.root.classList.add("entering");
-    requestAnimationFrame(() => this.root.classList.remove("entering"));
+    if (!wasOpen) {
+      this.root.classList.add("entering");
+      void this.root.offsetWidth;   // commit the start state so the transition runs
+      requestAnimationFrame(() => this.root.classList.remove("entering"));
+      this.root.focus({ preventScroll: true });
+    }
     this.context = context;
     $("geTitle").textContent = site.label?.text || "Selected site";
     $("geSub").textContent = context.subtitle || "";
@@ -262,12 +280,29 @@ export class GodsEye {
     $("geStats").innerHTML = "";
     $("geStatus").textContent = "Loading terrain…";
     $("geLoading").hidden = false;
+    $("geError").hidden = true;
     this._resize();
     try {
       const qs = new URLSearchParams({ lat: site.lat, lon: site.lon });
       if (context.targetId) qs.set("target_id", context.targetId);
-      const res = await fetch(`/api/site3d?${qs}`);
-      if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+      // Never wait forever: a stalled download ends in a clear message and a Retry button.
+      const abort = new AbortController();
+      const timer = setTimeout(() => abort.abort(), 120000);
+      let res;
+      try {
+        res = await fetch(`/api/site3d?${qs}`, { signal: abort.signal });
+      } catch (err) {
+        throw new Error(err.name === "AbortError"
+          ? "The terrain did not arrive within 2 minutes. The network may be slow or blocking the tile servers."
+          : err.message);
+      } finally {
+        clearTimeout(timer);
+      }
+      if (!res.ok) {
+        let detail = res.statusText;
+        try { detail = (await res.json()).detail || detail; } catch { /* not json */ }
+        throw new Error(detail);
+      }
       const data = await res.json();
       if (!this.open) return;
       this.data = data;
@@ -287,18 +322,59 @@ export class GodsEye {
       this._guide();
       await this._loadImagery(data);
     } catch (err) {
-      $("geStatus").textContent = `Could not load this site: ${err.message}`;
       $("geLoading").hidden = true;
+      $("geStatus").textContent = "";
+      this._showError(err.message, () => this.show(site, context));
     }
   }
 
+  /* A visible explanation in the middle of the screen while there is no terrain to show. */
+  _showError(message, retry) {
+    const box = $("geError");
+    box.hidden = false;
+    box.innerHTML = `<h3>Terrain unavailable</h3><p>${esc(message)}</p>
+      <p class="hint">Fastest fix: copy the <code>cache/sitetiles</code> folder from a laptop where this site
+        already opened, or run <code>python -m src.acquire.sitetiles --top 5</code> on a good connection.</p>
+      <div class="ge-error-actions"><button class="primary" type="button" id="geRetry">Try again</button>
+        <button class="ghost" type="button" id="geErrorClose">Back to the map</button></div>`;
+    $("geRetry").addEventListener("click", retry);
+    $("geErrorClose").addEventListener("click", () => this.close());
+    $("geRetry").focus({ preventScroll: true });
+  }
+
   close() {
+    if (!this.open) return;
     this.open = false;
-    this.root.hidden = true;
     $("geGuide").hidden = true;
     this.climate.setPlaying(false);
     this.flight = null;
-    if (this.onClose) this.onClose();
+    this.root.classList.add("leaving");
+    // Hand the screen back only once the fade has finished, so the map does not
+    // start drawing again underneath while the 3D view is still fading out.
+    let finished = false;
+    const done = () => {
+      if (finished || this.open) return;
+      finished = true;
+      this.root.hidden = true;
+      this.root.classList.remove("leaving");
+      if (this.onClose) this.onClose();
+    };
+    if (REDUCED) { done(); return; }
+    this.root.addEventListener("transitionend", (e) => { if (e.target === this.root) done(); }, { once: true });
+    setTimeout(done, 400);   // in case the transition does not fire
+  }
+
+  /* Esc: close the topmost thing first (guide, profile tool), then the view. */
+  escape() {
+    if (!$("geGuide").hidden) { $("geGuideOk").click(); return; }
+    if (this.profileMode) { this._toggleProfileMode(false); return; }
+    this.close();
+  }
+
+  _setSunPlaying(on) {
+    this.sunPlaying = on;
+    $("geSunPlay").setAttribute("aria-pressed", String(on));
+    $("geSunPlay").querySelector("span").textContent = on ? "Stop the sun" : "Turn the sun";
   }
 
   /* -------------------------------------------------------------- build */
@@ -480,7 +556,7 @@ export class GodsEye {
     edge(se[0], se[1], nw[0], se[1]);
     edge(nw[0], se[1], nw[0], nw[1]);
     this.cellLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
-      new THREE.LineBasicMaterial({ color: 0xffb27d, transparent: true, opacity: 0.95, depthTest: true }));
+      new THREE.LineBasicMaterial({ color: 0xe03c31, transparent: true, opacity: 0.95, depthTest: true }));
     this.cellLine.visible = $("geCell").checked;
     this.scene.add(this.cellLine);
 
@@ -489,7 +565,7 @@ export class GodsEye {
     const tall = this.sizeKm * 0.06;
     const geo = new THREE.CylinderGeometry(0.0, this.sizeKm * 0.004, tall, 12);
     geo.translate(0, tall / 2, 0);
-    this.pin = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xf08a4b }));
+    this.pin = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xe03c31 }));
     this.pin.rotation.x = Math.PI;
     this.pin.position.copy(ground).add(new THREE.Vector3(0, tall, 0));
     this.scene.add(this.pin);
@@ -557,8 +633,8 @@ export class GodsEye {
     this.hemi.intensity = lunar ? 0.02 : 0.55;
     this.light.intensity = lunar ? 3.4 : 2.6;
     this.light.color.set(lunar ? 0xffffff : Number(elevation) < 12 ? 0xffd2a6 : 0xfff6ea);
-    this.scene.background = new THREE.Color(lunar ? 0x000000 : 0x0d1522);
-    this.scene.fog = lunar ? null : new THREE.Fog(0x0d1522, (this.sizeKm || 100) * 1.4, (this.sizeKm || 100) * 4);
+    this.scene.background = new THREE.Color(lunar ? 0x010204 : 0x0a111c);
+    this.scene.fog = lunar ? null : new THREE.Fog(0x0a111c, (this.sizeKm || 100) * 1.4, (this.sizeKm || 100) * 4);
     this.stars.visible = lunar || Number(elevation) < 3;
     this.climate?.afterSun();
   }
@@ -615,7 +691,7 @@ export class GodsEye {
       <div class="ge-stat wide"><span>Rover-trafficable (under ${data.stats.trafficable_deg}°)</span>
         <b class="num">${pct(c.share_under_15)}</b>
         <div class="bar" role="img" aria-label="${pct(c.share_under_15)} trafficable"><i style="width:${(c.share_under_15 * 100).toFixed(1)}%"></i></div></div>
-      <p class="hint">Measured on ${data.stats.slope_baseline_m} m elevation pixels inside the scored 0.5° cell (orange outline).
+      <p class="hint">Measured on ${data.stats.slope_baseline_m} m elevation pixels inside the scored 0.5° cell (red outline).
         The probe, profile and Slope colours use the ${Math.round(data.ground_size_m / 255)} m display grid, so they read a little gentler.</p>
       ${compare}`;
   }
@@ -719,7 +795,7 @@ export class GodsEye {
       samples.push({ d: groundKm * t, e: this._elevationAt(u, v), u, v });
     }
     for (const obj of [this.profileLine]) if (obj) { this.scene.remove(obj); obj.geometry.dispose(); obj.material.dispose(); }
-    this.profileLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x7cc4ff }));
+    this.profileLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x7cb7ff }));
     this.scene.add(this.profileLine);
     this.profilePath = pts;
     this.profileSamples = samples;
@@ -762,7 +838,7 @@ export class GodsEye {
   _startDrive() {
     if (!this.profilePath) return;
     if (!this.rover) {
-      this.rover = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffb27d }));
+      this.rover = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0xeef0f3 }));
       this.scene.add(this.rover);
     }
     this.rover.scale.setScalar(this.sizeKm * 0.006);
