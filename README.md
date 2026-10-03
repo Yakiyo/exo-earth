@@ -194,6 +194,24 @@ Shareable links open a specific state, which is useful for the demo video:
 | `/#dialog=method` | the "How it works" panel |
 | `/#target=lunar_south_pole&site=1&eye=1&sun=lunar` | God's Eye on the #1 site under a lunar polar sun |
 
+## Troubleshooting
+
+**God's Eye, a 3D hover card or a zoomed map never finishes loading.** The first time a
+site opens, the app downloads tiles from AWS (elevation), EOX (Sentinel-2) and NASA GIBS.
+On a slow or filtered network that can stall. Downloads now give up after 30 s per tile and
+God's Eye after 2 minutes, showing the reason and a **Retry** button. To diagnose:
+
+```powershell
+.venv\Scripts\python -m scripts.check_network    # which data host is slow or blocked
+```
+
+The reliable fix for a demo laptop is not to download there at all: copy `cache\sitetiles`,
+`cache\peek` and `cache	iles` from a laptop where the sites already opened (or run the
+prefetch commands on a good connection), then start the app with `OFFLINE=1`.
+
+**The app is sluggish right after starting on a slow PC.** It pre-computes the stability
+badges in the background. Start it with `$env:EAF_WARM = "0"` to skip that.
+
 ## Tests and lint
 
 ```bash

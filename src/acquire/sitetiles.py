@@ -68,7 +68,8 @@ def dem_tile(x: int, y: int, offline: bool | None = None) -> np.ndarray:
         filename=f"{y}_{x}.png",
         raw_dir=CACHE / "dem" / str(DEM_ZOOM),
         offline=offline,
-        timeout=60,
+        timeout=20,
+        max_seconds=30,
     )
     with Image.open(item.path) as image:
         return terrain.decode_terrarium(np.asarray(image.convert("RGB")))
@@ -97,7 +98,8 @@ def imagery_tile(source: str, z: int, x: int, y: int, offline: bool | None = Non
         filename=f"{y}_{x}.jpg",
         raw_dir=CACHE / source / str(z),
         offline=offline,
-        timeout=60,
+        timeout=20,
+        max_seconds=30,
     )
     return item.path
 
