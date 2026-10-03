@@ -3,7 +3,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/three/OrbitControls.js";
-import { SpaceScenery, atmosphere } from "./space.js";
+import { SpaceScenery } from "./space.js";
 
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const DEG = Math.PI / 180;
@@ -67,6 +67,24 @@ function graticule(radius) {
   );
 }
 
+/* The Finder's atmosphere: a fresnel glow around the globe. */
+function atmosphere(radius, color) {
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 64, 32),
+    new THREE.ShaderMaterial({
+      uniforms: { glow: { value: new THREE.Color(color) } },
+      vertexShader: `varying vec3 vN; varying vec3 vV;
+        void main() { vN = normalize(normalMatrix * normal);
+          vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = normalize(-mv.xyz);
+          gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform vec3 glow; varying vec3 vN; varying vec3 vV;
+        void main() { float f = pow(1.0 - abs(dot(vN, vV)), 3.0);
+          gl_FragColor = vec4(glow, f * 0.9); }`,
+      side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+    }),
+  );
+}
+
 export class Globe {
   constructor(container, { onPick, onHover } = {}) {
     this.container = container;
@@ -116,7 +134,7 @@ export class Globe {
     );
     this.scene.add(this.overlay);
     this.scene.add(graticule(1.004));
-    this.scene.add(atmosphere(1, 0x7aa8ec));
+    this.scene.add(atmosphere(1.12, 0x4f9dff));
     this.space = new SpaceScenery(this.scene, this.camera, { pixelRatio: this.renderer.getPixelRatio(), settle: true });
     this.lastFrame = performance.now();
 
