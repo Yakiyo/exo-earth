@@ -11,7 +11,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const BASE = process.argv[2] || "http://127.0.0.1:8000/finder.html#target=moon";
+const BASE = (process.argv[2] || "http://127.0.0.1:8000").replace(/\/$/, "");
 const CHROME = process.env.CHROME || (process.platform === "win32"
   ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
   : "google-chrome");
@@ -44,7 +44,7 @@ const checks = [];
 const check = (name, ok, detail = "") => { checks.push({ name, ok: !!ok, detail }); };
 
 await send("Runtime.enable");
-await send("Page.navigate", { url: `${BASE}/#target=jezero_crater` });
+await send("Page.navigate", { url: `${BASE}/finder.html#target=jezero_crater` });
 await sleep(12000);
 check("ranked sites listed", (await js(`document.querySelectorAll('.site').length`)) >= 5);
 check("validation chip shows AUC", /AUC/.test(await js(`document.getElementById('chipAuc').textContent`)));
@@ -57,6 +57,8 @@ for (const layer of ["vegetation", "annual_temperature_range", "mean_annual_temp
 await js(`document.querySelector('.site').click()`);
 await sleep(1200);
 check("site card opens", !!(await js(`document.querySelector('#detail h3')`)));
+check("a click shows the small info card", !!(await js(`document.querySelector('.info-card')`)));
+check("a click does not open God's Eye", await js(`document.getElementById('godseye').hidden`));
 await js(`document.getElementById('tabExplore').click()`);
 await sleep(2500);
 check("explore scatter drawn", (await js(`document.querySelectorAll('.scatter [data-i]').length`)) > 5);

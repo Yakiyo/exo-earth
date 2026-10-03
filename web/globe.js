@@ -3,6 +3,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/three/OrbitControls.js";
+import { SpaceScenery } from "./space.js";
 
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const DEG = Math.PI / 180;
@@ -132,6 +133,8 @@ export class Globe {
     this.scene.add(this.overlay);
     this.scene.add(graticule(1.004));
     this.scene.add(atmosphere(1.12, 0x4f9dff));
+    this.space = new SpaceScenery(this.scene, this.camera, { pixelRatio: this.renderer.getPixelRatio() });
+    this.lastFrame = performance.now();
 
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
@@ -336,6 +339,9 @@ export class Globe {
   }
 
   tick() {
+    const frame = performance.now();
+    const dt = Math.min(0.1, (frame - this.lastFrame) / 1000);
+    this.lastFrame = frame;
     if (!this.visible) return;
     if (this.flight) {
       const f = this.flight;
@@ -367,6 +373,7 @@ export class Globe {
     // The data overlay fades as you zoom in, so the imagery underneath stays visible.
     const fade = Math.min(1, Math.max(0.45, altitude / 0.9));
     this.overlay.material.opacity = this.overlayOpacity * fade;
+    this.space.update(dt);
     this.renderer.render(this.scene, this.camera);
     this._placeMarkers();
   }
@@ -385,10 +392,13 @@ export class Globe {
         continue;
       }
       const s = p.project(this.camera);
+      const x = ((s.x + 1) / 2) * w;
+      const y = ((1 - s.y) / 2) * h;
       m.el.style.display = "";
-      m.el.style.left = `${((s.x + 1) / 2) * w}px`;
-      m.el.style.top = `${((1 - s.y) / 2) * h}px`;
+      m.el.style.left = `${x}px`;
+      m.el.style.top = `${y}px`;
       m.el.style.opacity = String(Math.min(1, (margin - 0.02) * 8));
+      m.onPlace?.(x, y, w, h);
     }
   }
 }

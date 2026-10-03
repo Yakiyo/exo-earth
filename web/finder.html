@@ -220,6 +220,7 @@
       <div class="ge-badges" id="geBadges"></div>
     </div>
     <div class="ge-top-actions">
+      <button class="icon-button" id="geHelp" type="button" aria-label="Mouse and touch controls" title="Controls">?</button>
       <button class="ghost small" id="geReset" type="button" title="Reset camera, sun, surface, height, overlays and tools">Reset all</button>
       <button class="icon-button ge-close" id="geClose" type="button" aria-label="Close 3D view (Esc)">✕</button>
     </div>
@@ -244,6 +245,11 @@
       <button type="button" data-imagery="relief" aria-pressed="false">Relief</button>
       <button type="button" data-imagery="slope" aria-pressed="false">Slope</button>
       <button type="button" data-imagery="elevation" aria-pressed="false">Elevation</button>
+      <button type="button" data-imagery="thermal" aria-pressed="false" title="Illustrative ground temperature at the chosen month and hour">Thermal</button>
+    </div>
+    <div class="ge-slope-legend ge-thermal-legend" id="geThermalLegend" hidden>
+      <div class="ramp" id="geThermalRamp"></div>
+      <div class="scale num"><span>−40 °C</span><span>−15</span><span>10</span><span>35</span><span>60 °C</span></div>
     </div>
     <div class="ge-slope-legend ge-elev-legend" id="geElevLegend" hidden>
       <div class="ramp"></div>
@@ -265,6 +271,20 @@
     <p class="hint" id="geToolHint">Click the terrain to probe any point.</p>
     <div id="geProbe" class="ge-probe" hidden></div>
     <div id="geProfile" class="ge-profile" hidden></div>
+    <div class="ge-climate-panel" id="geClimatePanel">
+      <h3 class="eyebrow">Climate simulation</h3>
+      <label class="ge-slider">Month <b id="geMonthValue" class="num"></b>
+        <input type="range" id="geMonth" min="0" max="11" step="1" value="6"></label>
+      <label class="ge-slider">Time of day <b id="geHourValue" class="num"></b>
+        <input type="range" id="geHour" min="0" max="23.75" step="0.25" value="13"></label>
+      <div class="ge-tools">
+        <button class="ghost small" type="button" id="geDayPlay" aria-pressed="false">▶ Play a day</button>
+        <button class="ghost small" type="button" id="geWeather" aria-pressed="false">☁ Weather</button>
+      </div>
+      <div class="ge-climate" id="geClimate" aria-live="polite"></div>
+      <p class="hint">Illustrative, not a forecast. Built from this cell's NASA POWER temperatures and rainfall and its
+        MODIS day–night surface swing, with the real sun position for the latitude. Try the Thermal view while a day plays.</p>
+    </div>
     <p class="hint ge-status" id="geStatus" role="status"></p>
   </aside>
   <div class="ge-hud">
@@ -273,6 +293,21 @@
     <div class="ge-vscale" id="geVScale">Vertical: true scale</div>
   </div>
   <div class="ge-hover" id="geHover" hidden></div>
+  <div class="ge-guide" id="geGuide" role="dialog" aria-labelledby="geGuideTitle" hidden>
+    <h3 id="geGuideTitle">Getting around in 3D</h3>
+    <ul>
+      <li><svg class="mouse" viewBox="0 0 16 22" aria-hidden="true"><rect x="1" y="1" width="14" height="20" rx="7"/><path class="hl" d="M7.4 1.8A6.2 6.2 0 0 0 1.8 8v.6h5.6z"/><path d="M8 1v8M1 9h14"/></svg>
+        <span><b>Left-drag</b> to orbit around the site</span></li>
+      <li><svg class="mouse" viewBox="0 0 16 22" aria-hidden="true"><rect x="1" y="1" width="14" height="20" rx="7"/><path class="hl" d="M8.6 1.8A6.2 6.2 0 0 1 14.2 8v.6H8.6z"/><path d="M8 1v8M1 9h14"/></svg>
+        <span><b>Right-drag</b> to slide across the ground</span></li>
+      <li><svg class="mouse" viewBox="0 0 16 22" aria-hidden="true"><rect x="1" y="1" width="14" height="20" rx="7"/><path d="M8 1v8M1 9h14"/><rect class="hl" x="6.3" y="3" width="3.4" height="5.6" rx="1.7"/></svg>
+        <span><b>Scroll</b> or <b>middle-drag</b> to zoom</span></li>
+      <li><svg class="mouse" viewBox="0 0 16 22" aria-hidden="true"><rect x="1" y="1" width="14" height="20" rx="7"/><path d="M8 1v8M1 9h14"/><circle class="hl" cx="8" cy="15" r="2.4"/></svg>
+        <span><b>Click</b> the ground to read its height and slope</span></li>
+    </ul>
+    <p class="hint">Touch: one finger orbits, two fingers pinch to zoom and drag to slide.</p>
+    <button class="primary small" id="geGuideOk" type="button">Got it</button>
+  </div>
   <p class="ge-credit" id="geCredit"></p>
   <div class="loading ge-loading" id="geLoading"><div class="spinner" aria-hidden="true"></div><p>Descending…</p></div>
 </section>

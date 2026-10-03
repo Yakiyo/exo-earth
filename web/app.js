@@ -32,6 +32,7 @@ const state = {
   view: "globe",
   selected: null,      // selected result row
   pick: null,          // clicked location
+  card: null,          // result row shown in the small info card on the map
   request: 0,
   topK: 20,
   mode: "target",      // "target" or "custom"
@@ -356,8 +357,69 @@ function renderMarkers() {
     labels.appendChild(el);
     markers.push({ lat: state.pick.lat, lon: state.pick.lon, el });
   }
+  if (state.card) {
+    const card = infoCard(state.card);
+    labels.appendChild(card.el);
+    markers.push(card);
+  }
   globe.setMarkers(state.view === "globe" ? markers : []);
   flat.setMarkers(state.view === "map" ? markers : []);
+}
+
+/* A small card pinned to the clicked place: the essentials, and a way into God's Eye. */
+function infoCard(r) {
+  const el = document.createElement("div");
+  el.className = "info-card";
+  el.setAttribute("role", "dialog");
+  el.setAttribute("aria-label", `${r.label.text}: ${fmtPct(r.score)} match`);
+  const t = target();
+  const polar = Math.abs(r.lat) > 84;
+  el.innerHTML = `
+    <button class="ic-close" type="button" aria-label="Close">✕</button>
+    <div class="ic-img"><i class="cellbox"></i></div>
+    <div class="ic-body">
+      <div class="ic-title">${r.rank ? `<span class="num">#${r.rank}</span> ` : ""}${esc(r.label.text)}</div>
+      <div class="ic-sub num">${fmtCoord(r.lat, r.lon)}</div>
+      <div class="ic-score"><b class="num">${(r.score * 100).toFixed(0)}%</b>
+        <span>match to ${esc(t?.short_name || "your profile")}<br>${topShare(r.percentile)} of land</span></div>
+      <div class="ic-chips">${noveltyChip(r.novelty)}</div>
+    </div>
+    <div class="ic-actions">
+      <button class="godseye-button small" type="button" data-act="eye" ${polar ? "disabled title=\"Elevation tiles stop at about 84 degrees latitude\"" : ""}>
+        <span aria-hidden="true">◉</span> God's Eye 3D</button>
+      <button class="ghost small" type="button" data-act="more">Details</button>
+    </div>`;
+  el.querySelector(".ic-close").addEventListener("click", () => { state.card = null; renderMarkers(); });
+  el.querySelector("[data-act=eye]").addEventListener("click", () => openGodsEye(r));
+  el.querySelector("[data-act=more]").addEventListener("click", () => {
+    if (ui.sidebar === false) setUi("sidebar", true);
+    selectTab("results");
+    $("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  for (const type of ["pointerdown", "wheel", "dblclick"]) el.addEventListener(type, (e) => e.stopPropagation());
+  thumbFor(cellOf(r.lat, r.lon)).then((thumb) => {
+    const box = el.querySelector(".ic-img");
+    if (!thumb || !box) return;
+    const img = new Image();
+    img.alt = `Satellite view around ${fmtCoord(r.lat, r.lon)}`;
+    img.src = thumb.src;
+    box.prepend(img);
+  });
+  // Sit above the point, but stay inside the stage.
+  const onPlace = (x, y, w, h) => {
+    const cw = el.offsetWidth, ch = el.offsetHeight;
+    const tx = Math.min(Math.max(-cw / 2, 8 - x), w - 8 - x - cw);
+    const above = y - ch - 18 > 8;
+    const ty = above ? -ch - 18 : Math.min(18, h - 8 - y - ch);
+    el.style.transform = `translate(${tx}px, ${ty}px)`;
+    el.classList.toggle("below", !above);
+  };
+  return { lat: r.lat, lon: r.lon, el, onPlace };
+}
+
+function showCard(r) {
+  state.card = r;
+  renderMarkers();
 }
 
 /* ------------------------------------------------------------------ layers */
@@ -729,6 +791,8 @@ async function runScore() {
     state.data = data;
     state.field = decode(data.field);
     state.sorted = sortedFinite(state.field);
+    // Keep the info card on the same place with its new score, or drop it if that site left the list.
+    if (state.card && !state.pick) state.card = data.results.find((r) => r.index === state.card.index) || null;
     if (state.layer === "score") paintLayer();
     renderResults();
     renderValidation();
@@ -803,23 +867,25 @@ function renderResults() {
 function selectResult(r) {
   state.selected = r;
   state.pick = null;
+  state.card = r;
   selectTab("results");
   renderDetail(r);
   renderMarkers();
   if (state.view === "globe") globe.flyTo(r.lat, r.lon, (globe.fitDistance || 3.6) * 0.78);
   else flat.flyTo(r.lat, r.lon, 3);
-  openGodsEye(r);
 }
 
 async function pickLocation(lat, lon) {
   state.pick = { lat, lon };
   state.selected = null;
+  state.card = null;
   renderMarkers();
   selectTab("results");
-  await refreshPick();
+  await refreshPick(true);
 }
 
-async function refreshPick() {
+/* fresh: a new click (open the info card); otherwise a rescore of the same place. */
+async function refreshPick(fresh = false) {
   const { lat, lon } = state.pick;
   try {
     const r = await api(`/api/explain?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}`, {
@@ -839,7 +905,7 @@ async function refreshPick() {
       return;
     }
     renderDetail(r);
-    openGodsEye(r);
+    if (fresh || state.card) showCard(r);
   } catch (err) {
     toast(`Could not inspect that location: ${err.message}`);
   }
@@ -848,6 +914,7 @@ async function refreshPick() {
 function showList() {
   state.selected = null;
   state.pick = null;
+  state.card = null;
   $("detail").hidden = true;
   $("siteList").hidden = false;
   $("siteList").querySelectorAll(".site").forEach((b) => b.classList.remove("active"));
@@ -1154,6 +1221,7 @@ function openGodsEye(r, preset = null) {
     targetName: t.short_name,
     subtitle: `${fmtCoord(r.lat, r.lon)} · ${fmtPct(r.score)} match to ${t.short_name}`,
     badges: `${r.rank ? `<span class="chip">#${r.rank} of ${state.data.results.length}</span>` : ""}${noveltyChip(r.novelty)}`,
+    values: r.values,   // the cell's climate, for the climate simulation
   };
   if (preset) eye.sun = { ...SUN_PRESETS[preset] };
   return eye.show(r, context);
@@ -1409,6 +1477,7 @@ function wireKeys() {
     if (e.key === "Escape") {
       if (eye.open) { eye.close(); e.preventDefault(); return; }
       if (tourIndex >= 0) { tourStop(); return; }
+      if (!dialogOpen && state.card) { state.card = null; renderMarkers(); return; }
       if (!dialogOpen && !typing && !$("detail").hidden) { showList(); return; }
       return;
     }
@@ -1419,7 +1488,7 @@ function wireKeys() {
       "/": () => $("search").focus(),
       j: () => stepSite(1),
       k: () => stepSite(-1),
-      e: () => openGodsEye(state.selected || (state.pick && null) || state.data?.results[0]),
+      e: () => openGodsEye(state.card || state.selected || state.data?.results[0]),
       p: () => state.selected && togglePin(state.selected),
       g: () => setView("globe"),
       m: () => setView("map"),

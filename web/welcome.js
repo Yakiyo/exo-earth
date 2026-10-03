@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three/three.module.min.js';
 import { OrbitControls } from './vendor/three/OrbitControls.js';
 import { initStarfield } from './starfield.js';
+import { SpaceScenery } from './space.js';
 
 // Initialize background starfield
 initStarfield('starfield');
@@ -68,11 +69,18 @@ const rimLight = new THREE.DirectionalLight(0x4488ff, 1);
 rimLight.position.set(-5, 0, -5);
 scene.add(rimLight);
 
+// The Moon, Mars and passing comets behind the Earth.
+const space = new SpaceScenery(scene, camera, { radius: 1.2, pixelRatio: renderer.getPixelRatio() });
+let lastFrame = performance.now();
+
 // Render loop
 function animate() {
   requestAnimationFrame(animate);
   // Update controls
   controls.update();
+  const now = performance.now();
+  space.update(Math.min(0.1, (now - lastFrame) / 1000));
+  lastFrame = now;
   renderer.render(scene, camera);
 }
 animate();

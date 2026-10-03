@@ -7,6 +7,7 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/three/OrbitControls.js";
+import { ClimateSim, thermalGradient } from "./climate.js";
 
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const DEG = Math.PI / 180;
@@ -113,6 +114,9 @@ export class GodsEye {
 
     new ResizeObserver(() => this._resize()).observe(root);
     this._bindUi();
+    this.climate = new ClimateSim(this);
+    $("geThermalRamp").style.background = thermalGradient();
+    this.lastFrame = performance.now();
     this.renderer.setAnimationLoop(() => this._tick());
   }
 
@@ -138,9 +142,10 @@ export class GodsEye {
       this._showExaggeration();
       this._applyHeights();
     });
-    $("geSunElev").addEventListener("input", (e) => { this.sun.elevation = Number(e.target.value); this._applySun(true); });
-    $("geSunAz").addEventListener("input", (e) => { this.sun.azimuth = Number(e.target.value); this._applySun(true); });
+    $("geSunElev").addEventListener("input", (e) => { this.climate.manualSun(); this.sun.elevation = Number(e.target.value); this._applySun(true); });
+    $("geSunAz").addEventListener("input", (e) => { this.climate.manualSun(); this.sun.azimuth = Number(e.target.value); this._applySun(true); });
     this.root.querySelectorAll("[data-sun]").forEach((b) => b.addEventListener("click", () => {
+      this.climate.manualSun();
       this.sun = { ...SUN_PRESETS[b.dataset.sun] };
       this._applySun(false);
     }));
@@ -152,6 +157,7 @@ export class GodsEye {
     $("geContours").addEventListener("change", (e) => { this.contour.uOn.value = e.target.checked ? 1 : 0; });
     $("geProfileBtn").addEventListener("click", () => this._toggleProfileMode());
     $("geSunPlay").addEventListener("click", () => {
+      this.climate.manualSun();
       this.sunPlaying = !this.sunPlaying;
       $("geSunPlay").setAttribute("aria-pressed", String(this.sunPlaying));
       $("geSunPlay").textContent = this.sunPlaying ? "❚❚ Pause sun" : "▶ Play sun";
@@ -170,6 +176,18 @@ export class GodsEye {
       this._click(e);
     });
     $("geReset").addEventListener("click", () => this.resetAll());
+    $("geHelp").addEventListener("click", () => this._guide(true));
+    $("geGuideOk").addEventListener("click", () => {
+      $("geGuide").hidden = true;
+      try { localStorage.setItem("tn-ge-guide", "1"); } catch { /* private mode: show again next time */ }
+    });
+  }
+
+  /* The mouse and touch guide: shown on the first visit, and from the ? button. */
+  _guide(force = false) {
+    let seen = false;
+    try { seen = localStorage.getItem("tn-ge-guide") === "1"; } catch { /* storage blocked */ }
+    if (force || !seen) $("geGuide").hidden = false;
   }
 
   _showExaggeration() {
@@ -211,6 +229,7 @@ export class GodsEye {
     this.probeMarker.visible = false;
     $("geProbe").hidden = true;
     $("geToolHint").textContent = "Click the terrain to probe any point.";
+    this.climate.reset();
 
     this.exaggeration = 1;
     $("geExag").value = 1;
@@ -259,11 +278,13 @@ export class GodsEye {
       this._toggleProfileMode(false);
       this._showExaggeration();
       this._build(data);
+      this.climate.setSite(site, context.values);
       this._renderStats(data);
       $("geCredit").innerHTML = `Terrain: ${esc(data.credits.elevation)} · Imagery: ${esc(data.credits.imagery)} (${esc(data.imagery.s2.licence)})`;
       $("geLoading").hidden = true;
       $("geStatus").textContent = "Loading satellite imagery…";
       this._introFlight(true);
+      this._guide();
       await this._loadImagery(data);
     } catch (err) {
       $("geStatus").textContent = `Could not load this site: ${err.message}`;
@@ -274,6 +295,8 @@ export class GodsEye {
   close() {
     this.open = false;
     this.root.hidden = true;
+    $("geGuide").hidden = true;
+    this.climate.setPlaying(false);
     this.flight = null;
     if (this.onClose) this.onClose();
   }
@@ -403,6 +426,7 @@ export class GodsEye {
     this.mesh.geometry.computeVertexNormals();
     this.mesh.geometry.computeBoundingSphere();
     this._buildOverlays();
+    this.climate?.rebuild();
   }
 
   /* Dark side walls from the terrain edge down to a common floor, so the block reads as solid. */
@@ -475,11 +499,12 @@ export class GodsEye {
     if (!this.mesh) return;
     this.root.querySelectorAll("[data-imagery]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.imagery === this.imagery)));
     const mat = this.mesh.material;
-    const coloured = this.imagery === "slope" || this.imagery === "elevation";
+    const coloured = this.imagery === "slope" || this.imagery === "elevation" || this.imagery === "thermal";
     mat.vertexColors = coloured;
     if (coloured) {
       const attr = this.mesh.geometry.attributes.color;
-      attr.array.set(this.imagery === "slope" ? this.slopeColours : this.elevColours);
+      const colours = { slope: this.slopeColours, elevation: this.elevColours };
+      attr.array.set(colours[this.imagery] || this.climate.thermalColours());
       attr.needsUpdate = true;
     }
     if (this.imagery === "s2") {
@@ -494,6 +519,9 @@ export class GodsEye {
     }
     $("geSlopeLegend").hidden = this.imagery !== "slope";
     $("geElevLegend").hidden = this.imagery !== "elevation";
+    $("geThermalLegend").hidden = this.imagery !== "thermal";
+    // Thermal keeps its colours readable at night (see ClimateSim.afterSun).
+    this._applySun(true);
     // Light contour ink over imagery, dark ink over the pale relief and slope surfaces.
     if (this.imagery === "s2") this.contour.uInk.value.setRGB(1.0, 0.93, 0.8);
     else this.contour.uInk.value.setRGB(0.28, 0.13, 0.05);
@@ -532,6 +560,7 @@ export class GodsEye {
     this.scene.background = new THREE.Color(lunar ? 0x000000 : 0x0d1522);
     this.scene.fog = lunar ? null : new THREE.Fog(0x0d1522, (this.sizeKm || 100) * 1.4, (this.sizeKm || 100) * 4);
     this.stars.visible = lunar || Number(elevation) < 3;
+    this.climate?.afterSun();
   }
 
   async _loadImagery(data) {
@@ -642,10 +671,12 @@ export class GodsEye {
     this.probeMarker.visible = true;
     const box = $("geProbe");
     box.hidden = false;
+    const temp = this.climate.tempAt(u, v);
+    const tempLine = temp === null ? "" : `<br><b>${Math.round(temp) || 0} °C</b> ground now <small>(simulated, see Climate)</small>`;
     box.innerHTML = `<b>${Math.round(this._elevationAt(u, v))} m</b> elevation · <b>${slope.toFixed(1)}°</b> slope
       <span class="${slope >= 15 ? "warn" : "ok"}">${slope >= 15 ? "too steep for a rover" : "drivable"}</span><br>
       <small>${Math.abs(lat).toFixed(3)}°${lat >= 0 ? "N" : "S"}, ${Math.abs(lon).toFixed(3)}°${lon >= 0 ? "E" : "W"} ·
-      slope over ${Math.round(this.slopeSpacing)} m</small>`;
+      slope over ${Math.round(this.slopeSpacing)} m</small>${tempLine}`;
   }
 
   _toggleProfileMode(force) {
@@ -780,6 +811,9 @@ export class GodsEye {
   }
 
   _tick() {
+    const now = performance.now();
+    const dt = (now - this.lastFrame) / 1000;
+    this.lastFrame = now;
     if (!this.open) return;
     if (this.flight) {
       const f = this.flight;
@@ -794,6 +828,7 @@ export class GodsEye {
       this._applySun(true);
     }
     if (this.drive) this._driveStep();
+    if (this.mesh) this.climate.tick(dt);
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
     this._hud();
