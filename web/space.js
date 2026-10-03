@@ -51,6 +51,55 @@ function haze(r) {
   return mesh;
 }
 
+/* The Earth's atmosphere, shaped by geometry rather than a fresnel trick: each pixel
+ * measures how close its line of sight passes to the Earth's centre. Outside the disc the
+ * glow peaks at the limb and falls smoothly to nothing, so there is no hard outer ring;
+ * just inside the limb a soft rim blends the disc into the haze. It is drawn after the
+ * Moon, Mars and comets, so anything passing behind the Earth sinks into the haze
+ * instead of being clipped like a cut-out. */
+export function atmosphere(earthRadius, color = 0x5b9dff, strength = 1) {
+  const shell = earthRadius * 1.28;
+  const uniforms = {
+    uColor: { value: new THREE.Color(color) },
+    uR: { value: earthRadius },
+    uShell: { value: shell },
+    uH: { value: earthRadius * 0.065 },
+    uStrength: { value: strength },
+  };
+  const vertexShader = `varying vec3 vW;
+    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+  // Distance from the centre to the line of sight through this pixel.
+  const common = `uniform vec3 uColor; uniform float uR, uShell, uH, uStrength; varying vec3 vW;
+    float closest() { vec3 dir = normalize(vW - cameraPosition); float t = -dot(cameraPosition, dir);
+      return length(cameraPosition + max(t, 0.0) * dir); }`;
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(shell, 96, 48),
+    new THREE.ShaderMaterial({
+      uniforms, vertexShader,
+      fragmentShader: `${common}
+        void main() { float d = closest(); if (d < uR) discard;
+          float a = 0.7 * exp(-(d - uR) / uH) * smoothstep(uShell, uShell - (uShell - uR) * 0.5, d) * uStrength;
+          gl_FragColor = vec4(uColor * a, a); }`,
+      side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+    }),
+  );
+  const rim = new THREE.Mesh(
+    new THREE.SphereGeometry(earthRadius * 1.002, 96, 48),
+    new THREE.ShaderMaterial({
+      uniforms, vertexShader,
+      fragmentShader: `${common}
+        void main() { float d = closest();
+          float a = exp(-max(uR - d, 0.0) / (uH * 0.9)) * 0.32 * uStrength;
+          gl_FragColor = vec4(uColor * a, a); }`,
+      side: THREE.FrontSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+    }),
+  );
+  halo.renderOrder = rim.renderOrder = 20;
+  const group = new THREE.Group();
+  group.add(rim, halo);
+  return group;
+}
+
 const COMET_POINTS = 160;
 
 function cometMaterial(pixelRatio) {
@@ -100,13 +149,11 @@ export class SpaceScenery {
       );
       mesh.rotation.z = s.tilt * DEG;
       mesh.visible = false;
-      // Drawn after the Earth's additive glow (a transparent mesh), so it does not wash over them;
-      // the Earth itself still hides them through the depth test.
       mesh.renderOrder = 10;
       scene.add(mesh);
       smallTexture(`${assets}/${s.key}_sm.jpg`).then((tex) => {
         mesh.material.dispose();
-        // "transparent" only to join the pass that renderOrder sorts after the glow; fully opaque.
+        // Transparent only while fading in; the atmosphere is drawn after it and hazes it near the limb.
         mesh.material = new THREE.MeshLambertMaterial({ map: tex, color: s.key === "mars" ? 0xd8d8d8 : 0xc4c4c4, transparent: true, opacity: 0 });
         b.ready = true;
       }).catch(() => {});

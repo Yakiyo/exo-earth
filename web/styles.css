@@ -101,6 +101,7 @@ button:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed
 /* primary: solid accent */
 button.primary, .btn-primary, .godseye-button {
   background: var(--accent-btn); color: var(--accent-ink); border: 1px solid var(--accent-btn); font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 button.primary:hover:not(:disabled), .btn-primary:hover, .godseye-button:hover:not(:disabled) { background: var(--accent-btn-hover); border-color: var(--accent-btn-hover); }
 
@@ -212,7 +213,16 @@ button.ghost.small, button.primary.small, .godseye-button.small { min-height: 30
 .home-facts dd { margin: 0; font: 500 22px/1 var(--mono); color: var(--ink); }
 .home-facts dt { color: var(--ink-3); font-size: 12.5px; }
 .home-globe { position: relative; height: min(78vh, 760px); }
-.home-globe canvas { width: 100%; height: 100%; display: block; outline: none; }
+.home-globe canvas { width: 100%; height: 100%; display: block; outline: none; cursor: grab; }
+.home-globe canvas:active { cursor: grabbing; }
+.globe-hint {
+  position: absolute; left: 0; right: 0; bottom: 4%; width: fit-content; margin: 0 auto;
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: rgba(6, 9, 15, 0.6); color: var(--ink-3); font-size: 12px;
+  pointer-events: none; transition: opacity var(--t-view) var(--ease);
+  animation: reveal var(--t-view) var(--ease) both; animation-delay: 1.2s;
+}
+.globe-hint.gone { opacity: 0; }
 .site-foot {
   padding: 14px clamp(20px, 7vw, 112px); border-top: 1px solid var(--line);
   color: var(--ink-3); font-size: 12px; display: flex; flex-wrap: wrap; gap: 6px 18px;
@@ -240,7 +250,7 @@ button.ghost.small, button.primary.small, .godseye-button.small { min-height: 30
 .dest-card:hover { border-color: var(--line-2); background: var(--surface-2); transform: translateY(-2px); }
 .dest-card:active { transform: translateY(0); }
 .dest-card .orb {
-  width: 72px; height: 72px; border-radius: 50%; background-size: 200% 100%; background-position: 30% 50%;
+  width: 72px; height: 72px; border-radius: 50%; background-size: 200% 100%; background-position: var(--x, 30%) 50%;
   box-shadow: inset -14px -11px 24px rgba(0, 0, 0, 0.85), inset 3px 2px 8px rgba(255, 255, 255, 0.08);
 }
 .dest-card .orb.custom { display: grid; place-items: center; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-2); color: var(--ink-2); }
@@ -250,6 +260,8 @@ button.ghost.small, button.primary.small, .godseye-button.small { min-height: 30
 .dest-card p { margin-top: 11px; color: var(--ink-2); font-size: 13.5px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .dest-card .go { position: absolute; right: 16px; top: 18px; color: var(--ink-3); transition: color var(--t-fast), transform var(--t-state) var(--ease); }
 .dest-card:hover .go { color: var(--accent); transform: translateX(3px); }
+.dest-card:hover .orb, .dest-card:focus-visible .orb { animation: orb-turn 14s linear infinite; }
+@keyframes orb-turn { from { background-position: var(--x, 30%) 50%; } to { background-position: calc(var(--x, 30%) - 200%) 50%; } }
 .dest-state { margin-top: 32px; padding: 20px; border: 1px solid var(--line); border-radius: var(--r-lg); color: var(--ink-2); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .skeleton { background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: var(--r-lg); }
 .dest-grid .skeleton { height: 128px; }
@@ -539,7 +551,11 @@ pre.json { max-height: 260px; overflow: auto; font: 11px/1.5 var(--mono); color:
 #globe { cursor: grab; }
 #globe:active { cursor: grabbing; }
 #flatmap { cursor: crosshair; }
-.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.labels { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.stage::after {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 60%, rgba(6, 9, 15, 0.55) 100%);
+}
 
 .marker {
   position: absolute; transform: translate(-50%, -50%);
@@ -746,7 +762,11 @@ pre.json { max-height: 260px; overflow: auto; font: 11px/1.5 var(--mono); color:
 }
 .loading.done { opacity: 0; visibility: hidden; pointer-events: none; }
 .spinner { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line-2); border-top-color: var(--accent); animation: spin 0.9s linear infinite; }
-.loading.failed .spinner { display: none; }
+.loading.failed .spinner, .loading.failed .load-bar, .loading.failed #loadingStep { display: none; }
+.loading-mark { width: 40px; height: 40px; color: var(--ink); animation: breathe 2.4s var(--ease) infinite alternate; }
+@keyframes breathe { from { opacity: 0.55; } to { opacity: 1; } }
+.load-bar { width: 220px; height: 2px; border-radius: 1px; background: var(--line); overflow: hidden; }
+.load-bar i { display: block; width: 100%; height: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform var(--t-view) var(--ease); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ------------------------------------------------- dialogs, toasts, tour */

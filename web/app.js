@@ -1012,6 +1012,26 @@ function renderDetail(r) {
   });
   det.closest(".panel").scrollTop = 0;
   if (window.innerWidth <= 1020) det.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Count the big score up when a new site opens (not on every refresh of the same one).
+  if (lastCounted !== `${r.lat},${r.lon}`) {
+    lastCounted = `${r.lat},${r.lon}`;
+    countUp(det.querySelector(".hero .big"), Math.round(r.score * 100));
+  }
+}
+
+let lastCounted = null;
+const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function countUp(el, to) {
+  if (!el || REDUCED_MOTION) return;
+  const node = el.firstChild;   // the number; the "%" sits in a <small> after it
+  const t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / 600);
+    node.nodeValue = String(Math.round(to * (1 - Math.pow(1 - k, 3))));
+    if (k < 1 && el.isConnected) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 /* -------------------------------------------------------------- validation */
@@ -1730,6 +1750,7 @@ async function init() {
   });
   $("layer").addEventListener("change", (e) => setLayer(e.target.value).catch((err) => toast(err.message)));
 
+  loadingStep(1, "Connecting to the TerraNova server…");
   try {
     const [health, targets, criteria, sources, analogs] = await Promise.all([
       api("/api/health"), api("/api/targets"), api("/api/criteria"), api("/api/sources"), api("/api/analogs"),
@@ -1767,12 +1788,13 @@ async function init() {
     renderTargetDetail();
     renderWeights();
 
-    $("loadingText").textContent = "Loading NASA Blue Marble…";
+    loadingStep(2, "Loading the NASA Blue Marble Earth…");
     // One after the other: the flat map then reuses the globe's download from the browser cache.
     await globe.setEarth("assets/earth_hd.jpg", "assets/earth.jpg");
     await flat.setBase("assets/earth_hd.jpg");
 
     if (hash.target === "custom") chooseTarget(CUSTOM_ID);
+    loadingStep(3, `Scoring ${fmtInt(health.candidate_cells)} land cells…`);
     await runScore();
     if (hash.view === "map") setView("map");
     if (hash.layer && state.criteria.some((c) => c.key === hash.layer)) {
@@ -1801,6 +1823,13 @@ async function init() {
 }
 
 $("loadingRetry").addEventListener("click", () => location.reload());
+
+/* The start-up screen names what it is doing: three real steps, not a spinner. */
+function loadingStep(n, text) {
+  $("loadingText").textContent = text;
+  $("loadingStep").textContent = `Step ${n} of 3`;
+  $("loadBar").style.transform = `scaleX(${n / 3})`;
+}
 // A link to another target (typed, pasted, or Back) only changes the hash: start over for it.
 window.addEventListener("hashchange", () => {
   const wanted = readHash().target;

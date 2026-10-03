@@ -11,7 +11,7 @@ const coord = (lat, lon) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? "N" : "S"
 function card(t, i) {
   const body = t.body.toLowerCase();
   return `<a class="dest-card reveal" style="--d: ${i}" href="finder.html#target=${encodeURIComponent(t.id)}">
-      <span class="orb" style="background-image: url('assets/${esc(body)}_sm.jpg'); background-position: ${(((t.longitude + 180) / 360) * 100 + 25).toFixed(1)}% 50%" aria-hidden="true"></span>
+      <span class="orb" style="background-image: url('assets/${esc(body)}_sm.jpg'); --x: ${(((t.longitude + 180) / 360) * 100 + 25).toFixed(1)}%" aria-hidden="true"></span>
       <div>
         <h3>${esc(t.short_name)}</h3>
         <span class="where num">${esc(t.body)} · ${coord(t.latitude, t.longitude)}</span>

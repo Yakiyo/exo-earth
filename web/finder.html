@@ -189,8 +189,10 @@
     </div>
 
     <div class="loading" id="loading" role="status">
-      <div class="spinner" aria-hidden="true"></div>
-      <p id="loadingText">Loading NASA imagery…</p>
+      <svg class="brand-mark loading-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="14" cy="18" r="10" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="25.5" cy="6.5" r="4" fill="#e03c31"/></svg>
+      <p id="loadingText">Connecting to the TerraNova server…</p>
+      <div class="load-bar" aria-hidden="true"><i id="loadBar"></i></div>
+      <p class="hint" id="loadingStep">Step 1 of 3</p>
       <button class="ghost" id="loadingRetry" type="button" hidden>Try again</button>
     </div>
   </section>

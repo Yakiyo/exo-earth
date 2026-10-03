@@ -829,7 +829,7 @@ export class GodsEye {
         <span>Steepest <b class="num">${maxGrade.toFixed(1)}°</b></span>
         <span>Over 15° <b class="num">${groundKm ? Math.round((steep / 1000 / groundKm) * 100) : 0}%</b></span>
       </div>
-      <button class="primary small" type="button" id="geDrive">▶ Drive it</button>
+      <button class="primary small" type="button" id="geDrive"><svg class="i" aria-hidden="true"><use href="icons.svg#i-play"></use></svg>Drive it</button>
       <small class="hint">Sampled from the ~${Math.round(this.slopeSpacing)} m display grid.</small>`;
     this.chart = { x, y };
     $("geDrive").addEventListener("click", () => this._startDrive());

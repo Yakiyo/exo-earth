@@ -20,8 +20,12 @@ the same numbers.
 powershell -File scripts/setup.ps1            # .venv on Python 3.12, installs, runs tests
 $env:OFFLINE = "1"
 .venv\Scripts\uvicorn src.api.main:app --reload
-# open http://127.0.0.1:8000/
+# open http://127.0.0.1:8000/  (Home), then Targets or Finder
 ```
+
+Three pages: **Home** (`index.html`), **Targets** (`targets.html`, pick a Moon or Mars site)
+and the **Finder** (`finder.html`, the globe, rankings and God's Eye). The interface follows
+the design system in `DESIGN.md`.
 
 Everything the demo needs is committed: `cache/predictors.zarr`, `cache/derived/*.npy`,
 the globe textures in `web/assets/`, three.js in `web/vendor/`, and the Natural Earth
@@ -50,19 +54,25 @@ temperature** at 2×, because "cold" is the defining challenge of a cold trap.
 map, drag to pan and double-click to zoom). Use the **Show top N** slider (5–100) to rank more or fewer sites, and the **Overlay**
 slider to fade the score layer over the imagery. Hover a numbered site, a known-analog diamond
 or a list entry for a satellite preview card. Rest the cursor on any land for a moment to
-preview that spot. Click anywhere to get its full breakdown.
+preview that spot. Click a site or any land for a small card with its score and a
+**God's Eye 3D** button; the full breakdown opens in the sidebar.
+
+On the map, numbered chips are the top 10, orange dots are ranks 11 and below, and white
+diamonds are known analogs. The Moon and Mars in the background are fixed in space: drag
+the globe and they come into view or slip behind you, like the stars.
 
 **Previews** come from NASA GIBS (Blue Marble Next Generation, cloud-free, 2°×2°) and
 are cached in `cache/thumbs/`. `python -m src.acquire.thumbs` prefetches the top 60 sites
-per target plus every known analog (132 images, 1.3 MB, committed). With `OFFLINE=1`,
+per target plus every known analog (346 images, committed). With `OFFLINE=1`,
 other locations fall back to a crop of the local basemap; run without `OFFLINE` to
 fetch any spot live.
 
 ### God's Eye: 3D view of any site
 
-Open a site and press **God's Eye 3D view** (or `E`). The app descends into a 3D block of
-the site's real terrain, about 140 km across and centred on the scored 0.5° cell (outlined
-in orange):
+Click a site and press **God's Eye 3D** on its card (or `E`). The app descends into a 3D
+block of the site's real terrain, about 140 km across and centred on the scored 0.5° cell
+(outlined in red). The first visit shows a short guide to the mouse and touch controls
+(**?** brings it back):
 
 * **Terrain:** AWS Terrain Tiles at zoom 10 (~150 m), mosaicked and measured on the server
   (`src/compute/terrain.py`). The panel reports relief, mean and 90th-percentile slope, and
@@ -77,12 +87,17 @@ in orange):
   rover limit marked), plus optional **contour lines** at an automatic interval.
 * **Probe:** click the terrain for elevation, slope and coordinates at that point.
 * **Profile:** "Measure a profile", click two points, and get the elevation profile with
-  climb, descent, the steepest grade and the share over 15°. Then **▶ Drive it** runs a rover
+  climb, descent, the steepest grade and the share over 15°. Then **Drive it** runs a rover
   marker along the path.
-* **Play sun:** animates the Sun round the sky. Under the lunar preset it circles the
+* **Turn the sun:** animates the Sun round the sky. Under the lunar preset it circles the
   horizon, as it does at the lunar pole.
+* **Climate simulation (illustrative):** pick a month and an hour, or **Play a day**. The Sun
+  follows its real path for the site's latitude; the **Thermal** surface shows an estimated
+  ground temperature built from the cell's NASA POWER and MODIS numbers (cooler with height,
+  warmer on sunlit slopes); **Weather** adds rain, snow or wind-blown dust and clouds in
+  proportion to the cell's yearly precipitation. A picture of the climate, not a forecast.
 * **True elevation:** the terrain opens at **true vertical scale (1×)**. A badge always shows
-  the vertical scale, and turns orange with "Heights ×N (exaggerated)" if you raise it.
+  the vertical scale, and turns amber with "Heights ×N (exaggerated)" if you raise it.
   Move the cursor over the terrain to read the real height in metres and the coordinates.
   **Elevation** mode colours the ground by height, with a legend of the block's lowest and
   highest points (the same full-resolution numbers as the stats panel).
@@ -100,7 +115,7 @@ demo sites on the presenting laptop:
 python -m src.acquire.sitetiles --top 5     # every target's top 5 sites, ~40 MB
 ```
 
-### Discovery settings (right panel)
+### Discovery settings (Results tab, "Filters and weights")
 
 The goal is new places, so by default the ranking shows **new sites only** (more than
 500 km from any catalogued analog), **spread out** (at least 800 km apart, at most 2 per
@@ -147,12 +162,13 @@ Data-layer colours stop at the range that covers 99% of Earth's land.
 
 ### Seeing a place
 
-* **Hover preview in 3D:** hovering a site shows the Blue Marble thumbnail at once. It then
-  upgrades to a small **rotating 3D terrain block**: Sentinel-2 2020 imagery blended with a
-  hillshade computed from the elevation tiles, so ridges and gullies read in depth. Built
-  on demand and cached in `cache/peek/`; prefetch with `python -m src.acquire.peek`.
+* **Hover preview:** hovering a site shows its Blue Marble thumbnail (2° × 2°, the scored
+  cell outlined).
+* **Terrain relief** (site card): Sentinel-2 2020 imagery blended with a hillshade from the
+  elevation tiles, so ridges and gullies read in depth. Built on demand and cached in
+  `cache/peek/`; prefetch with `python -m src.acquire.peek`. The full 3D view is God's Eye.
 * **Latest NASA view** (site card): NASA's newest daily image of the place (VIIRS on
-  NOAA-20 via GIBS, 375 m, labelled with its date). This is as close to "live" as open
+  NOAA-20 via GIBS, 250 m, labelled with its date). This is as close to "live" as open
   satellite imagery gets. It may show clouds and needs internet.
 * **Explore tab:** a scatter plot of any two criteria showing the ranked sites (orange
   dots), known analogs (diamonds) and the target (crosshair). Hover or click any point.
@@ -160,11 +176,14 @@ Data-layer colours stop at the range that covers 99% of Earth's land.
 ### Other tools
 
 * **Search** (`/`): towns, deserts, known analog sites, or typed coordinates (`-24.5, -69.25`).
-* **🎲 Surprise me** (`R`): fly to a random place in the top 2% that is not in your list.
+* **Surprise me** (`R`): fly to a random place in the top 2% that is not in your list.
 * **Pin to compare** (`P`): up to three sites side by side, criterion by criterion; the best
   value in each row is highlighted.
-* **Guided tour** (`T` or **▶ Tour**): an 8-step walkthrough that drives the app. Useful for
-  recording the demo video.
+* **Guided tour** (`T`, or **Help** > Guided tour): an 8-step walkthrough that drives the
+  app. Useful for recording the demo video. **Help** also opens How it works, Data sources
+  and the keyboard shortcuts.
+* **Status pill** (top right): online or offline, and the current target's validation AUC;
+  click it for details and a link to the Validation tab.
 * **Keyboard** (`?` lists everything): `J`/`K` next/previous site, `G`/`M` globe/map,
   `+`/`-`/`0` zoom, `V` validation, `Esc` close.
 * **Legend histogram:** how land cells are distributed across scores, with the top 10%
@@ -187,16 +206,17 @@ Shareable links open a specific state, which is useful for the demo video:
 
 | Link | Opens |
 |---|---|
-| `/#target=jezero_crater&site=1` | Jezero, the #1 site's detail card |
-| `/#target=malapert_massif&top=50` | Malapert Massif, top 50 sites |
-| `/#target=lunar_south_pole&tab=validation` | the validation tab |
-| `/#target=jezero_crater&view=map&layer=vegetation` | flat map, raw NDVI layer |
-| `/#dialog=method` | the "How it works" panel |
-| `/#target=lunar_south_pole&site=1&eye=1&sun=lunar` | God's Eye on the #1 site under a lunar polar sun |
+| `finder.html#target=jezero_crater&site=1` | Jezero, the #1 site's detail card |
+| `finder.html#target=malapert_massif&top=50` | Malapert Massif, top 50 sites |
+| `finder.html#target=lunar_south_pole&tab=validation` | the validation tab |
+| `finder.html#target=jezero_crater&view=map&layer=vegetation` | flat map, raw NDVI layer |
+| `finder.html#dialog=method` | the "How it works" panel |
+| `finder.html#target=lunar_south_pole&site=1&eye=1&sun=lunar` | God's Eye on the #1 site under a lunar polar sun |
+| `finder.html#target=moon` / `#target=mars` / `#target=custom` | lunar south pole, Jezero, or the custom profile |
 
 ## Troubleshooting
 
-**God's Eye, a 3D hover card or a zoomed map never finishes loading.** The first time a
+**God's Eye or a zoomed map never finishes loading.** The first time a
 site opens, the app downloads tiles from AWS (elevation), EOX (Sentinel-2) and NASA GIBS.
 On a slow or filtered network that can stall. Downloads now give up after 30 s per tile and
 God's Eye after 2 minutes, showing the reason and a **Retry** button. To diagnose:
@@ -206,7 +226,7 @@ God's Eye after 2 minutes, showing the reason and a **Retry** button. To diagnos
 ```
 
 The reliable fix for a demo laptop is not to download there at all: copy `cache\sitetiles`,
-`cache\peek` and `cache	iles` from a laptop where the sites already opened (or run the
+`cache\peek` and `cache\tiles` from a laptop where the sites already opened (or run the
 prefetch commands on a good connection), then start the app with `OFFLINE=1`.
 
 **The app is sluggish right after starting on a slow PC.** It pre-computes the stability
@@ -215,7 +235,8 @@ badges in the background. Start it with `$env:EAF_WARM = "0"` to skip that.
 ## Tests and lint
 
 ```bash
-python -m pytest tests -q                       # 68 tests, ~3 s, no network
+python -m pytest tests -q                       # 74 tests, no network
+node scripts/ui_smoke.mjs                       # 28 browser checks (needs the app running and Chrome)
 python -m ruff check src tests scripts conftest.py
 OFFLINE=1 python -m scripts.check_controls      # validation table for every target
 ```
@@ -311,7 +332,7 @@ article. The list also has 8 densely vegetated reference points.
 | `GET` | `/api/search?q=` | Places, regions, known analogs or `lat, lon` |
 | `POST` | `/api/robustness` | Monte Carlo stability of the ranked sites and leave-one-criterion-out sensitivity |
 | `GET` | `/api/datachecks` | Agreement between independent datasets (Spearman ρ) |
-| `GET` | `/api/peek?lat=&lon=` | Relief-shaded Sentinel-2 preview and a 64×64 heightmap for the 3D hover card |
+| `GET` | `/api/peek?lat=&lon=` | Relief-shaded Sentinel-2 preview and a 64×64 heightmap |
 | `GET` | `/api/sources` | Every dataset, target citation, basemap credit and the LST gap-fill fit |
 
 ---
@@ -344,7 +365,8 @@ scratch downloads the Zenodo GeoTIFFs (~1 GB).
 | `src/agents/rationale.py` | Rule-based explainer (not a language model); every claim carries a source |
 | `src/api/main.py` | FastAPI app |
 | `data/` | `targets.json`, `normalization.json`, `known_analogs.json`, `gazetteer.json` |
-| `web/` | `index.html`, `styles.css`, `app.js`, `globe.js`, `flatmap.js`, `godseye.js`, `colors.js`, `assets/`, `vendor/three/` |
+| `web/` | Pages `index.html` (Home), `targets.html`, `finder.html`; `styles.css`; `app.js` (Finder), `welcome.js`, `targets.js`, `globe.js`, `flatmap.js`, `godseye.js`, `climate.js`, `space.js`, `colors.js`, `ui.js`, `icons.svg`; `assets/`, `vendor/` (three.js, fonts) |
+| `DESIGN.md` | The interface design system: tokens, type, icons, motion |
 | `docs/` | `REVIEW.md`, `TEAM_PLAN.md`, `VIDEO_SCRIPT.md`, `AI_USE.md`, `DATA_REQUESTS.md` |
 
 ## Known limitations

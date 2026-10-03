@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/three/OrbitControls.js";
 import { initStarfield } from "./starfield.js";
-import { SpaceScenery } from "./space.js";
+import { SpaceScenery, atmosphere } from "./space.js";
 
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 initStarfield("starfield");
@@ -21,6 +21,8 @@ const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
 camera.position.set(-1.2, 0.9, 3.6);
 
 const controls = new OrbitControls(camera, canvas);
+// The hint goes once someone has turned the globe themselves.
+controls.addEventListener("start", () => document.getElementById("globeHint")?.classList.add("gone"), { once: true });
 Object.assign(controls, {
   enableDamping: true, dampingFactor: 0.06, enableZoom: false, enablePan: false,
   autoRotate: !REDUCED, autoRotateSpeed: 0.45, rotateSpeed: 0.5,
@@ -40,18 +42,7 @@ new THREE.TextureLoader().load("assets/earth.jpg", (tex) => {
   earth.material.needsUpdate = true;
 });
 
-// Thin atmosphere rim.
-scene.add(new THREE.Mesh(
-  new THREE.SphereGeometry(1.26, 64, 32),
-  new THREE.ShaderMaterial({
-    vertexShader: `varying vec3 vN; varying vec3 vV;
-      void main() { vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: `varying vec3 vN; varying vec3 vV;
-      void main() { float f = pow(1.0 - abs(dot(vN, vV)), 3.0); gl_FragColor = vec4(0.42, 0.62, 0.95, f * 0.7); }`,
-    side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
-  }),
-));
+scene.add(atmosphere(1.2, 0x7aa8ec));
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.18));
 // The Sun sits over the viewer's left shoulder, so the side facing you is in daylight
