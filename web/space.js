@@ -2,8 +2,8 @@
  * and the occasional comet streaking past behind the Earth. Decoration only:
  * sizes and distances are chosen to frame the globe, not to scale.
  *
- * The Moon and Mars keep a place in the background beside the Earth and drift
- * back to it after you turn the globe, so they are in view at the default zoom. */
+ * The Moon and Mars are fixed on screen, like a backdrop: dragging or zooming the
+ * globe never moves them. They sit behind the Earth, so a close zoom covers them. */
 
 import * as THREE from "three";
 
@@ -56,11 +56,12 @@ export class SpaceScenery {
     this.nextComet = performance.now() + 2500;
     this.pixelRatio = pixelRatio;
 
-    // [texture, size, distance behind the Earth, bearing on screen (deg), extra angle beyond the Earth's edge]
+    // Screen position (-1..1 across and up the view), and size at the backdrop depth.
     const specs = [
-      { key: "moon", size: 0.27, behind: 5, bearing: 32, gap: 5, spin: 0.02 },
-      { key: "mars", size: 0.36, behind: 15, bearing: 152, gap: 8, spin: 0.035 },
+      { key: "moon", size: 0.38, x: 0.78, y: 0.55 },
+      { key: "mars", size: 0.24, x: -0.72, y: 0.62 },
     ];
+    this.depth = 12 * radius;
     this.bodies = specs.map((s) => {
       const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(s.size * radius, 48, 24),
@@ -68,28 +69,32 @@ export class SpaceScenery {
       );
       mesh.rotation.z = (s.key === "mars" ? 25 : 6.7) * DEG;
       mesh.visible = false;
+      // Drawn after the Earth's additive glow (a transparent mesh), so it does not wash over them;
+      // the Earth itself still hides them through the depth test.
+      mesh.renderOrder = 10;
       scene.add(mesh);
       smallTexture(`${assets}/${s.key}_sm.jpg`).then((tex) => {
         mesh.material.dispose();
-        mesh.material = new THREE.MeshLambertMaterial({ map: tex, color: s.key === "mars" ? 0xd8d8d8 : 0xc4c4c4 });
+        // "transparent" only to join the pass that renderOrder sorts after the glow; fully opaque.
+        mesh.material = new THREE.MeshLambertMaterial({ map: tex, color: s.key === "mars" ? 0xd8d8d8 : 0xc4c4c4, transparent: true });
         mesh.visible = true;
       }).catch(() => {});
-      return { ...s, mesh, placed: false };
+      // The face we show, fixed relative to the viewer.
+      return { ...s, mesh, tilt: new THREE.Quaternion().setFromEuler(mesh.rotation) };
     });
   }
 
-  /* Where a background body sits now: beside the Earth's disc at its bearing, inside the frame. */
-  _anchor(b) {
+  /* Pin a body to its spot on screen: same place, same size, same face, whatever the camera does. */
+  _pin(b) {
     const cam = this.camera;
-    const dist = cam.position.length();
-    const depth = dist + b.behind * this.radius;
-    const edge = Math.asin(Math.min(1, (this.radius * 1.12) / dist));
-    const tanA = Math.tan(edge + b.gap * DEG);
-    const vf = Math.tan((cam.fov * DEG) / 2);
+    cam.updateMatrixWorld();
+    const d = this.depth;
+    const vf = Math.tan((cam.fov * DEG) / 2) * d;
     const hf = vf * cam.aspect;
-    const x = Math.max(-hf * 0.86, Math.min(hf * 0.86, tanA * Math.cos(b.bearing * DEG)));
-    const y = Math.max(-vf * 0.8, Math.min(vf * 0.8, tanA * Math.sin(b.bearing * DEG)));
-    return cam.localToWorld(new THREE.Vector3(x * depth, y * depth, -depth));
+    // Keep the whole disc inside narrow frames.
+    const x = Math.sign(b.x) * Math.min(Math.abs(b.x) * hf, hf - b.size * this.radius * 1.3);
+    b.mesh.position.copy(cam.localToWorld(new THREE.Vector3(x, b.y * vf, -d)));
+    b.mesh.quaternion.copy(cam.quaternion).multiply(b.tilt);
   }
 
   _spawnComet() {
@@ -122,13 +127,7 @@ export class SpaceScenery {
   }
 
   update(dt) {
-    const k = REDUCED ? 1 : 1 - Math.exp(-dt * 1.8);
-    for (const b of this.bodies) {
-      const target = this._anchor(b);
-      if (!b.placed) { b.mesh.position.copy(target); b.placed = true; }
-      else b.mesh.position.lerp(target, k);
-      if (!REDUCED) b.mesh.rotation.y += b.spin * dt;
-    }
+    for (const b of this.bodies) this._pin(b);
     if (!this.cometsOn) return;
     const now = performance.now();
     if (now > this.nextComet && this.comets.length < 2) {

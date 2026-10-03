@@ -152,7 +152,6 @@ button.ghost.small, button.primary.small, .godseye-button.small { min-height: 30
 .nav-link.active::after, .nav-link[aria-current="page"]::after {
   content: ""; position: absolute; left: 12px; right: 12px; bottom: -11px; height: 2px; background: var(--accent);
 }
-.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px; min-height: 26px;
   padding: 0 11px; border: 1px solid var(--line); border-radius: 999px;
@@ -162,7 +161,39 @@ button.ghost.small, button.primary.small, .godseye-button.small { min-height: 30
 .chip-button:hover { color: var(--ink); border-color: var(--ink-3); }
 .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
 .chip .dot.on { background: var(--ok); }
-.top-actions { display: flex; gap: 6px; align-items: center; }
+.top-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.menu-wrap { position: relative; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px 0 12px;
+  border: 1px solid var(--line-2); border-radius: 999px; background: transparent; color: var(--ink-2);
+  font-size: 12.5px; white-space: nowrap; cursor: pointer; transition: color var(--t-fast), border-color var(--t-fast);
+}
+.pill:hover, .pill[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-3); }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.pill .dot.on { background: var(--ok); }
+.pill .dot.off { background: var(--accent); }
+.pill-auc { color: var(--ink); padding-left: 8px; border-left: 1px solid var(--line-2); }
+.caret { width: 12px; height: 12px; color: var(--ink-3); transition: transform var(--t-state) var(--ease); }
+[aria-expanded="true"] > .caret { transform: rotate(180deg); }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 240px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r); box-shadow: var(--shadow);
+  transform-origin: top right; animation: pop var(--t-fast) var(--ease) both;
+}
+.menu [role="menuitem"] {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0 10px;
+  border: 0; border-radius: var(--r-sm); background: none; color: var(--ink-2); font-size: 13px; text-align: left; cursor: pointer;
+  transition: background-color var(--t-fast), color var(--t-fast);
+}
+.menu [role="menuitem"]:hover, .menu [role="menuitem"]:focus-visible { background: var(--surface-2); color: var(--ink); outline: none; }
+.menu [role="menuitem"] .i { color: var(--ink-3); }
+.menu kbd { margin-left: auto; }
+.status-panel { width: 290px; padding: 6px 14px 14px; }
+.status-panel dl { margin: 0 0 12px; }
+.status-panel dl div { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.status-panel dt { color: var(--ink-3); }
+.status-panel dd { margin: 0; color: var(--ink); text-align: right; }
+.status-panel > button { width: 100%; }
 
 /* -------------------------------------------------------------- home page */
 
@@ -521,7 +552,8 @@ pre.json { max-height: 260px; overflow: auto; font: 11px/1.5 var(--mono); color:
 }
 .marker:hover { transform: translate(-50%, -50%) scale(1.12); border-color: var(--ink); }
 .marker.active { background: var(--accent-btn); border-color: var(--accent-btn); color: var(--accent-ink); transform: translate(-50%, -50%) scale(1.12); }
-.marker.minor { min-width: 11px; width: 11px; height: 11px; padding: 0; font-size: 0; background: var(--ink-2); border-color: var(--bg); }
+.marker.minor { min-width: 11px; width: 11px; height: 11px; padding: 0; font-size: 0; background: var(--score); border-color: var(--bg); }
+.marker.minor:hover, .marker.minor:focus-visible { background: rgba(9, 13, 20, 0.88); border-color: var(--score); color: var(--ink); }
 .marker.minor:hover, .marker.minor.active, .marker.minor:focus-visible { min-width: 22px; width: auto; height: 22px; padding: 0 6px; font-size: 11px; }
 .marker.minor.active { background: var(--accent); }
 .marker.pinned { box-shadow: 0 0 0 3px rgba(124, 183, 255, 0.55); }
@@ -626,6 +658,12 @@ pre.json { max-height: 260px; overflow: auto; font: 11px/1.5 var(--mono); color:
 .legend .scale.abs span:first-child { transform: none; }
 .legend .scale.abs span:last-child { transform: translateX(-100%); }
 .legend .note { font-size: 12px; color: var(--ink-3); margin-top: 6px; line-height: 1.45; }
+.legend .marks { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+.legend .marks span { display: inline-flex; align-items: center; gap: 6px; }
+.mk { display: inline-grid; place-items: center; flex: none; }
+.mk.top { min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; border: 1px solid rgba(238, 240, 243, 0.7); background: var(--bg); font: 500 10px/1 var(--mono); font-style: normal; color: var(--ink); }
+.mk.minor { width: 10px; height: 10px; border-radius: 50%; background: var(--score); }
+.mk.known { width: 8px; height: 8px; margin: 0 1px; transform: rotate(45deg); background: var(--ink); }
 .legend .hist { display: flex; align-items: flex-end; gap: 1px; height: 26px; margin-top: 11px; }
 .legend .hist i { flex: 1; background: var(--line-2); border-radius: 1px 1px 0 0; min-height: 1px; }
 .legend .hist i.hot { background: var(--score); }
@@ -682,9 +720,9 @@ pre.json { max-height: 260px; overflow: auto; font: 11px/1.5 var(--mono); color:
   background: var(--overlay); backdrop-filter: blur(10px); box-shadow: var(--shadow);
   font-size: 12px;
 }
-.info-card > * { animation: card-in var(--t-state) var(--ease) both; }
+.info-card > :not(.ic-close) { animation: card-in var(--t-state) var(--ease) both; }
 @keyframes card-in { from { opacity: 0; transform: translateY(6px); } }
-.info-card .ic-close { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; min-height: 26px; border: 0; }
+.info-card .ic-close { position: absolute; z-index: 2; top: 8px; right: 8px; width: 26px; height: 26px; min-height: 26px; border: 0; }
 .info-card .ic-close .i { width: 14px; height: 14px; }
 .info-card .ic-img { position: relative; width: 88px; height: 88px; border-radius: var(--r); overflow: hidden; background: var(--bg); }
 .info-card .ic-img img { width: 100%; height: 100%; object-fit: cover; display: block; animation: fade var(--t-state) both; }
@@ -912,13 +950,6 @@ body.touring .legend, body.touring .twin { opacity: 0.35; transition: opacity va
 
 /* ------------------------------------------------------------ responsive */
 
-@media (max-width: 1360px) {
-  #chipCells { display: none; }
-}
-@media (max-width: 1200px) {
-  .top-actions .btn-label { display: none; }
-  .top-actions button.ghost { width: 36px; padding: 0; }
-}
 @media (max-width: 1280px) {
   .layout { --sidebar-w: 320px; }
   .search input { width: 190px; }
@@ -931,7 +962,6 @@ body.touring .legend, body.touring .twin { opacity: 0.35; transition: opacity va
   .panel { overflow: visible; border-right: 0; }
   .edge-toggle { display: none; }
   body.hide-sidebar .sidebar { visibility: visible; }
-  .chips { display: none; }
   .legend .note, .legend .credit-line { display: none; }
   .twin { width: 140px; padding: 8px; }
   .twin canvas { width: 122px; height: 122px; }
@@ -948,6 +978,8 @@ body.touring .legend, body.touring .twin { opacity: 0.35; transition: opacity va
 @media (max-width: 720px) {
   .topbar { gap: 12px; padding: 0 12px; }
   .brand .wordmark, .brand h1 { font-size: 18px; }
+  #statusMode, #helpButton .btn-label { display: none; }
+  .pill-auc { padding-left: 0; border-left: 0; }
   .nav-link { padding: 8px 8px; font-size: 14px; }
   .search input { width: 150px; }
   .search input:focus { width: 210px; }
@@ -967,7 +999,6 @@ body.touring .legend, body.touring .twin { opacity: 0.35; transition: opacity va
   .main-nav { gap: 0; }
   .nav-link { padding: 8px 6px; font-size: 13px; letter-spacing: 0.04em; }
   .brand .wordmark { display: none; }
-  .top-actions #openSources { display: none; }
   .tool-group.layers .toggle.opacity { display: none; }
 }
 

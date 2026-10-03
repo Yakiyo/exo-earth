@@ -7,7 +7,7 @@ import { GodsEye, SUN_PRESETS } from "./godseye.js";
 import { FlatMap } from "./flatmap.js";
 import { LAYER_RAMPS, cssGradient, paint, percentileOf, quantile, rampPosition, sortedFinite } from "./colors.js";
 import { initStarfield } from "./starfield.js";
-import { icon, toast } from "./ui.js";
+import { closeMenus, icon, menu, toast } from "./ui.js";
 
 const starfield = initStarfield("starfield");
 
@@ -457,6 +457,7 @@ function paintLayer() {
       <div class="ramp" style="background:${cssGradient("score")}"></div>
       <div class="scale abs num"><span style="left:0">top 50%</span><span style="left:80%">top 10%</span><span style="left:98%">1%</span></div>
       ${histogram()}
+      <div class="marks"><span><i class="mk top">3</i>top 10</span><span><i class="mk minor"></i>rank 11 and below</span><span><i class="mk known"></i>known analog</span></div>
       <div class="note">Brighter = closer match; uncoloured land is in the bottom half. Bars: how many land cells
         reach each score (orange = top 10%, at least ${fmtPct(q(0.9))}).</div>
       <div class="credit-line">Earth: <a href="${esc(state.sources.basemaps.earth.url)}" target="_blank" rel="noopener">${esc(state.sources.basemaps.earth.credit)}</a></div>`;
@@ -1017,11 +1018,13 @@ function renderDetail(r) {
 
 function renderValidation() {
   const v = state.data.validation;
-  const chip = $("chipAuc");
-  if (!v || v.auc === null) { chip.hidden = true; $("validation").innerHTML = `<p class="hint">No validation for a custom profile.</p>`; return; }
-  chip.hidden = false;
-  chip.innerHTML = `<span class="num">AUC ${v.auc.toFixed(2)}</span> on ${v.positives} known sites`;
-  chip.title = "ROC-AUC of known analog sites against vegetated reference points. Open the Validation tab.";
+  const hasAuc = !!v && v.auc !== null;
+  $("statusAuc").hidden = !hasAuc;
+  $("statusValRow").hidden = !hasAuc;
+  $("statusOpenVal").hidden = !hasAuc;
+  if (!hasAuc) { $("validation").innerHTML = `<p class="hint">No validation for a custom profile.</p>`; return; }
+  $("statusAuc").textContent = `AUC ${v.auc.toFixed(2)}`;
+  $("statusVal").innerHTML = `<span class="num">AUC ${v.auc.toFixed(2)}</span> on ${v.positives} known sites`;
   const body = v.tag === "cold_polar" ? "cold polar-desert" : v.body.charAt(0).toUpperCase() + v.body.slice(1);
   const share = v.auc >= 0.999 ? "every" : `${fmtPct(v.auc)} of`;
   const rows = v.controls.map((c) => `
@@ -1507,6 +1510,7 @@ function wireKeys() {
     const typing = e.target.closest("input, select, textarea, [contenteditable]");
     const dialogOpen = document.querySelector("dialog[open]");
     if (e.key === "Escape") {
+      if (closeMenus()) { e.preventDefault(); return; }
       if (eye.open) { eye.escape(); e.preventDefault(); return; }
       if (tourIndex >= 0) { tourStop(); return; }
       if (!dialogOpen && state.card) { closeCard(); return; }
@@ -1696,7 +1700,12 @@ async function init() {
     $("toleranceValue").textContent = state.tolerance ? `×${state.tolerance.toFixed(2)}` : "exact";
     scoreSoon();
   });
-  $("chipAuc").addEventListener("click", () => selectTab("validation"));
+  menu($("statusPill"), $("statusPanel"));
+  menu($("helpButton"), $("helpMenu"));
+  $("statusOpenVal").addEventListener("click", () => {
+    if (ui.sidebar === false) setUi("sidebar", true);
+    selectTab("validation");
+  });
   $("showKnown").addEventListener("change", renderMarkers);
   $("exportGeojson").addEventListener("click", exportGeojson);
   $("exportCsv").addEventListener("click", exportCsv);
@@ -1746,8 +1755,10 @@ async function init() {
     $("topK").value = state.topK;
     $("topKValue").textContent = state.topK;
 
-    $("chipMode").innerHTML = health.offline ? `<span class="dot on"></span>Offline · local data` : `<span class="dot on"></span>Online`;
-    $("chipCells").textContent = `${fmtInt(health.candidate_cells)} land cells`;
+    $("statusDot").className = "dot on";
+    $("statusMode").textContent = health.offline ? "Offline" : "Online";
+    $("statusData").textContent = health.offline ? "Offline, local data" : "Online, NASA services";
+    $("statusCells").textContent = fmtInt(health.candidate_cells);
     const layer = $("layer");
     layer.appendChild(new Option("Analog score", "score"));
     for (const c of state.criteria) layer.appendChild(new Option(c.label, c.key));
@@ -1782,7 +1793,9 @@ async function init() {
     $("loading").classList.add("failed");
     $("loadingText").textContent = `Could not start: ${err.message}. Check that the TerraNova server is running.`;
     $("loadingRetry").hidden = false;
-    $("chipMode").textContent = "Server not reachable";
+    $("statusDot").className = "dot off";
+    $("statusMode").textContent = "Server not reachable";
+    $("statusData").textContent = "Server not reachable";
     toast(`Could not start: ${err.message}`);
   }
 }

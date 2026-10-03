@@ -47,7 +47,7 @@ await send("Runtime.enable");
 await send("Page.navigate", { url: `${BASE}/finder.html#target=jezero_crater` });
 await sleep(12000);
 check("ranked sites listed", (await js(`document.querySelectorAll('.site').length`)) >= 5);
-check("validation chip shows AUC", /AUC/.test(await js(`document.getElementById('chipAuc').textContent`)));
+check("status pill shows AUC", /AUC/.test(await js(`document.getElementById('statusPill').textContent`)));
 check("legend rendered", !!(await js(`document.querySelector('#legend .ramp')`)));
 for (const layer of ["vegetation", "annual_temperature_range", "mean_annual_temperature", "slope"]) {
   await js(`(() => { const s = document.getElementById('layer'); s.value = '${layer}'; s.dispatchEvent(new Event('change')); })()`);
@@ -59,12 +59,39 @@ await sleep(1200);
 check("site card opens", !!(await js(`document.querySelector('#detail h3')`)));
 check("a click shows the small info card", !!(await js(`document.querySelector('.info-card')`)));
 check("a click does not open God's Eye", await js(`document.getElementById('godseye').hidden`));
+check("rank 11+ markers look different from known analogs", await js(`(() => {
+  const a = document.querySelector('.marker.minor'), b = document.querySelector('.marker.known');
+  return !!a && !!b && getComputedStyle(a).backgroundColor !== getComputedStyle(b).backgroundColor; })()`));
+// A real mouse click on the card's close button, so anything painted over it is caught.
+const xy = await js(`(() => { const r = document.querySelector('.info-card .ic-close').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) {
+  await send("Input.dispatchMouseEvent", { type, x: xy[0], y: xy[1], button: "left", clickCount: 1 });
+}
+await sleep(400);
+check("the card's close button closes it", !(await js(`!!document.querySelector('.info-card')`)));
+await js(`document.querySelector('.site').click()`);
+await sleep(800);
 await js(`document.getElementById('tabExplore').click()`);
 await sleep(2500);
 check("explore scatter drawn", (await js(`document.querySelectorAll('.scatter [data-i]').length`)) > 5);
 await js(`document.getElementById('tabValidation').click()`);
 await sleep(4000);
 check("validation controls table", (await js(`document.querySelectorAll('#validation table.controls tbody tr').length`)) > 5);
+const escape = () => send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+await js(`document.getElementById('tabResults').click()`);
+await js(`document.getElementById('helpButton').click()`);
+await sleep(200);
+check("Help menu lists its 4 items", (await js(`document.getElementById('helpMenu').hidden ? 0 : document.querySelectorAll('#helpMenu [role=menuitem]').length`)) === 4);
+await escape();
+await sleep(200);
+check("Esc closes the Help menu", await js(`document.getElementById('helpMenu').hidden`));
+await js(`document.getElementById('statusPill').click()`);
+await sleep(200);
+check("status panel shows the AUC", /AUC/.test(await js(`document.getElementById('statusVal').textContent`)));
+await js(`document.getElementById('statusOpenVal').click()`);
+await sleep(300);
+check("status panel opens the Validation tab", (await js(`document.getElementById('tabValidation').getAttribute('aria-selected')`)) === "true"
+  && (await js(`document.getElementById('statusPanel').hidden`)));
 await js(`document.getElementById('toggleSidebar').click()`);
 await sleep(600);
 check("globe keeps its width with the sidebar hidden", (await js(`document.querySelector('.stage').getBoundingClientRect().width`)) > 600);

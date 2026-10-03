@@ -7,6 +7,7 @@ import { SpaceScenery } from "./space.js";
 
 const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const DEG = Math.PI / 180;
+const SUN_OFFSET = new THREE.Vector3(1.5, 1.2, 0);
 
 /* Detail imagery tiles (src/acquire/tiles.py): size in degrees per level. */
 const TILE_SIZE = { 1: 10, 2: 2.5 };
@@ -357,7 +358,8 @@ export class Globe {
     const full = (this.fitDistance || 3.6) - 1;
     this.controls.rotateSpeed = Math.min(0.5, Math.max(0.04, 0.5 * altitude / full));
     this.controls.update();
-    this.sun.position.copy(this.camera.position).add(new THREE.Vector3(1.5, 1.2, 0));
+    // Light from over the viewer's shoulder, fixed relative to the view, so the backdrop Moon and Mars keep the same phase.
+    this.sun.position.copy(this.camera.position).add(SUN_OFFSET.clone().applyQuaternion(this.camera.quaternion));
     // Detail tiles follow the view; they fade in once loaded.
     const now = performance.now();
     if (now - this.tileCheck > 300) {

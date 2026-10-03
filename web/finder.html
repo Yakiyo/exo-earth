@@ -29,16 +29,28 @@
     <a href="targets.html" class="nav-link">Targets</a>
     <a href="finder.html" class="nav-link" aria-current="page">Finder</a>
   </nav>
-  <div class="chips" aria-live="polite">
-    <span class="chip" id="chipMode">Connecting…</span>
-    <span class="chip num" id="chipCells"></span>
-    <button class="chip-button" id="chipAuc" type="button" hidden></button>
-  </div>
-  <div class="top-actions">
-    <button class="ghost" id="startTour" type="button" title="Guided tour (T)"><svg class="i" aria-hidden="true"><use href="icons.svg#i-play"></use></svg><span class="btn-label">Tour</span></button>
-    <button class="ghost" id="openMethod" type="button" title="How it works"><svg class="i" aria-hidden="true"><use href="icons.svg#i-info"></use></svg><span class="btn-label">How it works</span></button>
-    <button class="ghost" id="openSources" type="button" title="Data sources"><svg class="i" aria-hidden="true"><use href="icons.svg#i-stack"></use></svg><span class="btn-label">Data sources</span></button>
-    <button class="icon-button" id="openKeys" type="button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)"><svg class="i" aria-hidden="true"><use href="icons.svg#i-keyboard"></use></svg></button>
+  <div class="top-right">
+    <div class="menu-wrap">
+      <button class="pill" id="statusPill" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="statusPanel" title="Data and validation status">
+        <span class="dot" id="statusDot"></span><span id="statusMode">Connecting…</span><span class="pill-auc num" id="statusAuc" hidden></span><svg class="i caret" aria-hidden="true"><use href="icons.svg#i-caret-down"></use></svg></button>
+      <div class="menu status-panel" id="statusPanel" role="dialog" aria-label="Data and validation status" hidden>
+        <dl>
+          <div><dt>Data</dt><dd id="statusData">Connecting…</dd></div>
+          <div><dt>Land cells scored</dt><dd class="num" id="statusCells">–</dd></div>
+          <div id="statusValRow" hidden><dt>Validation</dt><dd id="statusVal"></dd></div>
+        </dl>
+        <button class="ghost small" id="statusOpenVal" type="button" hidden><svg class="i" aria-hidden="true"><use href="icons.svg#i-check-circle"></use></svg>Open the Validation tab</button>
+      </div>
+    </div>
+    <div class="menu-wrap">
+      <button class="ghost" id="helpButton" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="helpMenu"><svg class="i" aria-hidden="true"><use href="icons.svg#i-question"></use></svg><span class="btn-label">Help</span><svg class="i caret" aria-hidden="true"><use href="icons.svg#i-caret-down"></use></svg></button>
+      <div class="menu" id="helpMenu" role="menu" aria-label="Help" hidden>
+        <button role="menuitem" id="startTour" type="button"><svg class="i" aria-hidden="true"><use href="icons.svg#i-play"></use></svg>Guided tour<kbd>T</kbd></button>
+        <button role="menuitem" id="openMethod" type="button"><svg class="i" aria-hidden="true"><use href="icons.svg#i-info"></use></svg>How it works</button>
+        <button role="menuitem" id="openSources" type="button"><svg class="i" aria-hidden="true"><use href="icons.svg#i-stack"></use></svg>Data sources</button>
+        <button role="menuitem" id="openKeys" type="button"><svg class="i" aria-hidden="true"><use href="icons.svg#i-keyboard"></use></svg>Keyboard shortcuts<kbd>?</kbd></button>
+      </div>
+    </div>
   </div>
 </header>
 
