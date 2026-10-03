@@ -2,8 +2,10 @@
  * and the occasional comet streaking past behind the Earth. Decoration only:
  * sizes and distances are chosen to frame the globe, not to scale.
  *
- * The Moon and Mars are fixed on screen, like a backdrop: dragging or zooming the
- * globe never moves them. They sit behind the Earth, so a close zoom covers them. */
+ * The Moon and Mars hold their places on screen, like a backdrop: dragging or zooming
+ * the globe never moves them. Each turns slowly on its own tilted axis (Mars inside a
+ * thin dusty haze); the turning stops under reduced motion. They sit behind the Earth,
+ * so a close zoom covers them. */
 
 import * as THREE from "three";
 
@@ -26,6 +28,26 @@ function smallTexture(url, width = 1024) {
     img.onerror = reject;
     img.src = url;
   });
+}
+
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const SPIN = new THREE.Quaternion();
+
+/* Mars's thin dusty atmosphere: a faint butterscotch rim, brightest at the limb. */
+function haze(r) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(r * 1.07, 48, 24),
+    new THREE.ShaderMaterial({
+      vertexShader: `varying vec3 vN; varying vec3 vV;
+        void main() { vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `varying vec3 vN; varying vec3 vV;
+        void main() { float f = pow(1.0 - abs(dot(vN, vV)), 2.6); gl_FragColor = vec4(0.93, 0.62, 0.42, f * 0.55); }`,
+      side: THREE.BackSide, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+    }),
+  );
+  mesh.renderOrder = 11;
+  return mesh;
 }
 
 const COMET_POINTS = 160;
@@ -56,10 +78,11 @@ export class SpaceScenery {
     this.nextComet = performance.now() + 2500;
     this.pixelRatio = pixelRatio;
 
-    // Screen position (-1..1 across and up the view), and size at the backdrop depth.
+    // Screen position (-1..1 across and up the view), size at the backdrop depth, axial
+    // tilt, and spin (radians per second: one turn in about 90 s for the Moon, 60 s for Mars).
     const specs = [
-      { key: "moon", size: 0.38, x: 0.78, y: 0.55 },
-      { key: "mars", size: 0.24, x: -0.72, y: 0.62 },
+      { key: "moon", size: 0.38, x: 0.78, y: 0.55, tilt: 6.7, spin: 0.07 },
+      { key: "mars", size: 0.24, x: -0.72, y: 0.62, tilt: 25.2, spin: 0.105 },
     ];
     this.depth = 12 * radius;
     this.bodies = specs.map((s) => {
@@ -67,7 +90,7 @@ export class SpaceScenery {
         new THREE.SphereGeometry(s.size * radius, 48, 24),
         new THREE.MeshLambertMaterial({ color: 0x6a6a6a }),
       );
-      mesh.rotation.z = (s.key === "mars" ? 25 : 6.7) * DEG;
+      mesh.rotation.z = s.tilt * DEG;
       mesh.visible = false;
       // Drawn after the Earth's additive glow (a transparent mesh), so it does not wash over them;
       // the Earth itself still hides them through the depth test.
@@ -79,8 +102,9 @@ export class SpaceScenery {
         mesh.material = new THREE.MeshLambertMaterial({ map: tex, color: s.key === "mars" ? 0xd8d8d8 : 0xc4c4c4, transparent: true });
         mesh.visible = true;
       }).catch(() => {});
-      // The face we show, fixed relative to the viewer.
-      return { ...s, mesh, tilt: new THREE.Quaternion().setFromEuler(mesh.rotation) };
+      if (s.key === "mars") mesh.add(haze(s.size * radius));
+      // The axis is fixed relative to the viewer; the body turns about it.
+      return { ...s, mesh, axis: new THREE.Quaternion().setFromEuler(mesh.rotation), angle: Math.random() * Math.PI * 2 };
     });
   }
 
@@ -94,7 +118,7 @@ export class SpaceScenery {
     // Keep the whole disc inside narrow frames.
     const x = Math.sign(b.x) * Math.min(Math.abs(b.x) * hf, hf - b.size * this.radius * 1.3);
     b.mesh.position.copy(cam.localToWorld(new THREE.Vector3(x, b.y * vf, -d)));
-    b.mesh.quaternion.copy(cam.quaternion).multiply(b.tilt);
+    b.mesh.quaternion.copy(cam.quaternion).multiply(b.axis).multiply(SPIN.setFromAxisAngle(Y_AXIS, b.angle));
   }
 
   _spawnComet() {
@@ -127,7 +151,10 @@ export class SpaceScenery {
   }
 
   update(dt) {
-    for (const b of this.bodies) this._pin(b);
+    for (const b of this.bodies) {
+      if (!REDUCED) b.angle += b.spin * Math.min(dt || 0, 0.1);
+      this._pin(b);
+    }
     if (!this.cometsOn) return;
     const now = performance.now();
     if (now > this.nextComet && this.comets.length < 2) {
